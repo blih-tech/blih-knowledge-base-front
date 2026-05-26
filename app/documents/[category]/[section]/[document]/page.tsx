@@ -1,11 +1,13 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Header } from '@/components/Header';
 import { Breadcrumbs } from '@/components/Breadcrumbs';
 import { Sidebar } from '@/components/Sidebar';
 import { TableOfContents } from '@/components/TableOfContents';
 import { DocumentViewer } from '@/components/DocumentViewer';
-import { documentsData, getDocumentBySlug } from '@/lib/data';
+import { getContent, getDocument } from '@/lib/get-content';
+import { DocumentCategory } from '@/lib/types';
 import { useParams } from 'next/navigation';
 
 export default function DocumentPage() {
@@ -14,7 +16,19 @@ export default function DocumentPage() {
   const sectionSlug = Array.isArray(params.section) ? params.section[0] : params.section;
   const documentSlug = Array.isArray(params.document) ? params.document[0] : params.document;
 
-  const document = getDocumentBySlug(categorySlug, sectionSlug, documentSlug);
+  const [categories, setCategories] = useState<DocumentCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setCategories(getContent());
+    setIsLoading(false);
+  }, []);
+
+  const document = getDocument(categorySlug, sectionSlug, documentSlug);
+
+  if (isLoading) {
+    return <div className="min-h-screen bg-background" />;
+  }
 
   if (!document || !document.content) {
     return (
@@ -27,7 +41,7 @@ export default function DocumentPage() {
     );
   }
 
-  const category = documentsData.find(c => c.slug === categorySlug);
+  const category = categories.find(c => c.id === categorySlug);
 
   const breadcrumbItems = [
     { title: 'Home', href: '/' },

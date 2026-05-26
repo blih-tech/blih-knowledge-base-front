@@ -1,15 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { SearchBar } from '@/components/SearchBar';
 import { SectionCard } from '@/components/SectionCard';
-import { documentsData } from '@/lib/data';
+import { getContent } from '@/lib/get-content';
+import { DocumentCategory } from '@/lib/types';
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<DocumentCategory[]>([]);
 
-  const filteredData = documentsData.map(category => ({
+  useEffect(() => {
+    setCategories(getContent());
+  }, []);
+
+  const filteredData = categories.map(category => ({
     ...category,
     sections: category.sections.map(section => ({
       ...section,
