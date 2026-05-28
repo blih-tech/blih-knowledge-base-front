@@ -1,20 +1,40 @@
-import { apiAxios, ApiError } from "./axios";
+import axios from "axios";
+import { getSession } from "next-auth/react";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth/auth-options";
 
-export { ApiError };
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api/v1";
 
-export const apiClient = {
-  get: <T>(endpoint: string) =>
-    apiAxios.get<T>(endpoint).then((r) => r.data),
+// ─── Server-side client (for Server Components / Route Handlers) ───────────────
 
-  post: <T>(endpoint: string, body: unknown) =>
-    apiAxios.post<T>(endpoint, body).then((r) => r.data),
+export async function serverFetch<T>(endpoint: string): Promise<T> {
+  const session = await getServerSession(authOptions);
+  const headers: Record<string, string> = {};
+  if (session?.accessToken) {
+    headers["Authorization"] = `Bearer ${session.accessToken}`;
+  }
+  const res = await fetch(`${API_BASE}${endpoint}`, { headers, cache: "no-store" });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message ?? "Request failed");
+  return json.data as T;
+}
 
-  put: <T>(endpoint: string, body: unknown) =>
-    apiAxios.put<T>(endpoint, body).then((r) => r.data),
+// ─── Client-side axios instance ───────────────────────────────────────────────
 
-  patch: <T>(endpoint: string, body: unknown) =>
-    apiAxios.patch<T>(endpoint, body).then((r) => r.data),
+export const apiAxios = axios.create({ baseURL: API_BASE });
 
-  delete: <T>(endpoint: string) =>
-    apiAxios.delete<T>(endpoint).then((r) => r.data),
-};
+apiAxios.interceptors.request.use(async (config) => {
+  const session = await getSession();
+  if (session?.accessToken) {
+    config.headers["Authorization"] = `Bearer ${session.accessToken}`;
+  }
+  return config;
+});
+
+apiAxios.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    const message = err.response?.data?.message ?? err.message ?? "Request failed";
+    return Promise.reject(new Error(message));
+  }
+);

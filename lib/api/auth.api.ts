@@ -1,4 +1,4 @@
-import { apiClient } from "./client";
+import { serverFetch } from "./client";
 
 export interface AuthUser {
   id: string;
@@ -8,5 +8,5 @@ export interface AuthUser {
 }
 
 export const authApi = {
-  getMe: () => apiClient.get<AuthUser>("/auth/me"),
+  getMe: () => serverFetch<AuthUser>("/auth/me"),
 };

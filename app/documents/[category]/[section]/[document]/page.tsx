@@ -1,93 +1,89 @@
-'use client';
+import { notFound } from "next/navigation";
+import { Header } from "@/components/Header";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { Sidebar } from "@/components/Sidebar";
+import { DocumentViewer } from "@/components/DocumentViewer";
+import { TableOfContents } from "@/components/TableOfContents";
+import { getFullTree, getDocumentBySlug } from "@/lib/api/documents.api";
 
-import { useEffect, useState } from 'react';
-import { Header } from '@/components/Header';
-import { Breadcrumbs } from '@/components/Breadcrumbs';
-import { Sidebar } from '@/components/Sidebar';
-import { TableOfContents } from '@/components/TableOfContents';
-import { DocumentViewer } from '@/components/DocumentViewer';
-import { getContent, getDocument } from '@/lib/get-content';
-import { DocumentCategory } from '@/lib/types';
-import { useParams } from 'next/navigation';
+interface Props {
+  params: Promise<{ category: string; section: string; document: string }>;
+}
 
-export default function DocumentPage() {
-  const params = useParams();
-  const categorySlug = Array.isArray(params.category) ? params.category[0] : params.category;
-  const sectionSlug = Array.isArray(params.section) ? params.section[0] : params.section;
-  const documentSlug = Array.isArray(params.document) ? params.document[0] : params.document;
+export const dynamic = "force-dynamic";
 
-  const [categories, setCategories] = useState<DocumentCategory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export default async function DocumentPage({ params }: Props) {
+  const { document: docSlug, category: categorySlug, section: sectionSlug } = await params;
 
-  useEffect(() => {
-    setCategories(getContent());
-    setIsLoading(false);
-  }, []);
+  // Fetch in parallel
+  const [categories, doc] = await Promise.all([
+    getFullTree().catch(() => []),
+    getDocumentBySlug(docSlug).catch(() => null),
+  ]);
 
-  const document = getDocument(categorySlug, sectionSlug, documentSlug);
+  if (!doc) notFound();
 
-  if (isLoading) {
-    return <div className="min-h-screen bg-background" />;
-  }
-
-  if (!document || !document.content) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header showNav={false} />
-        <div className="flex items-center justify-center py-20">
-          <p className="text-muted-foreground">Document not found</p>
-        </div>
-      </div>
-    );
-  }
-
-  const category = categories.find(c => c.id === categorySlug);
-
-  const breadcrumbItems = [
-    { title: 'Home', href: '/' },
-    { title: 'Documentation', href: '/' },
-    { title: category?.title || 'Category', href: '/' },
-    { title: document.title },
+  const breadcrumbs = [
+    { title: "Home", href: "/" },
+    { title: "Documentation", href: "/" },
+    { title: doc.categoryId.name, href: "/" },
+    { title: doc.sectionId.name, href: "/" },
+    { title: doc.title },
   ];
+
+  // Extract headings from HTML for Table of Contents
+  const headingRegex = /<h([1-3])[^>]*id="([^"]+)"[^>]*>(.*?)<\/h[1-3]>/gi;
+  const tocItems: { id: string; title: string; level: number; number: string }[] = [];
+  let match: RegExpExecArray | null;
+  let counter = 0;
+  while ((match = headingRegex.exec(doc.contentHtml)) !== null) {
+    counter++;
+    tocItems.push({
+      id: match[2],
+      title: match[3].replace(/<[^>]+>/g, ""), // strip inner tags
+      level: parseInt(match[1]),
+      number: String(counter),
+    });
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <Header showNav={false} />
 
       <div className="flex">
-        {/* Sidebar - Hidden on mobile and tablet */}
+        {/* Left Sidebar */}
         <div className="hidden lg:block">
           <Sidebar
-            categories={documentsData}
-            currentCategory={categorySlug}
-            currentSection={sectionSlug}
-            currentDocument={documentSlug}
+            categories={categories}
+            currentCategorySlug={categorySlug}
+            currentSectionSlug={sectionSlug}
+            currentDocSlug={docSlug}
           />
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col lg:flex-row">
-          <div className="flex-1 min-w-0 overflow-x-hidden">
-            <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-4xl">
-              <Breadcrumbs items={breadcrumbItems} />
+        {/* Main content */}
+        <div className="flex-1 flex flex-col xl:flex-row min-w-0">
+          <div className="flex-1 min-w-0 px-6 lg:px-10 py-8 max-w-4xl">
+            <Breadcrumbs items={breadcrumbs} />
 
-              <div className="mb-8">
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2 break-words">
-                  {document.content.title}
-                </h1>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  {document.content.docId}
-                </p>
-              </div>
-
-              <DocumentViewer document={document.content} />
+            <div className="mt-6 mb-8">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight mb-2">
+                {doc.title}
+              </h1>
+              {doc.docId && (
+                <p className="text-xs text-muted-foreground font-mono">{doc.docId}</p>
+              )}
             </div>
+
+            <DocumentViewer contentHtml={doc.contentHtml} />
           </div>
 
-          {/* Table of Contents Sidebar - Hidden on smaller screens */}
-          <div className="hidden xl:block w-56 2xl:w-64 px-4 lg:px-6 py-6 sm:py-8 border-l border-border flex-shrink-0">
-            <TableOfContents items={document.content.tableOfContents} />
-          </div>
+          {/* Right TOC */}
+          {tocItems.length > 0 && (
+            <div className="hidden xl:block w-56 flex-shrink-0 border-l border-border px-6 py-8">
+              <TableOfContents items={tocItems} />
+            </div>
+          )}
         </div>
       </div>
     </div>

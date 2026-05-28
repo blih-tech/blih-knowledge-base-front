@@ -1,101 +1,105 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { ChevronDown, ChevronRight, FileText } from 'lucide-react';
-import { DocumentCategory } from '@/lib/types';
+import { useState } from "react";
+import Link from "next/link";
+import { ChevronDown, ChevronRight, FileText } from "lucide-react";
+import type { CategoryNode } from "@/lib/api/documents.api";
 
 interface SidebarProps {
-  categories: DocumentCategory[];
-  currentCategory?: string;
-  currentSection?: string;
-  currentDocument?: string;
+  categories: CategoryNode[];
+  currentCategorySlug?: string;
+  currentSectionSlug?: string;
+  currentDocSlug?: string;
 }
 
 export function Sidebar({
   categories,
-  currentCategory,
-  currentSection,
-  currentDocument,
+  currentCategorySlug,
+  currentSectionSlug,
+  currentDocSlug,
 }: SidebarProps) {
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    [currentCategory || '']: true,
-    [currentSection || '']: true,
-  });
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(
+    Object.fromEntries(categories.map((c) => [c.slug, c.slug === currentCategorySlug]))
+  );
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(
+    Object.fromEntries(
+      categories.flatMap((c) =>
+        c.sections.map((s) => [s.slug, s.slug === currentSectionSlug])
+      )
+    )
+  );
 
-  const toggleSection = (id: string) => {
-    setOpenSections((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
-  };
+  const toggleCat = (slug: string) =>
+    setOpenCategories((p) => ({ ...p, [slug]: !p[slug] }));
+  const toggleSec = (slug: string) =>
+    setOpenSections((p) => ({ ...p, [slug]: !p[slug] }));
 
   return (
-    <aside className="w-56 lg:w-64 bg-white border-r border-border overflow-y-auto h-screen sticky top-0">
-      <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-        {categories.map((category) => (
-          <div key={category.id}>
+    <aside className="w-60 lg:w-64 bg-white border-r border-border h-screen sticky top-0 overflow-y-auto">
+      <div className="py-6 px-4 space-y-1">
+        {categories.map((cat) => (
+          <div key={cat.id}>
+            {/* Category row */}
             <button
-              onClick={() => toggleSection(category.id)}
-              className="flex items-center gap-2 w-full text-left py-2 hover:opacity-70 transition-opacity"
+              onClick={() => toggleCat(cat.slug)}
+              className="flex items-center justify-between w-full text-left py-2 px-2 rounded hover:bg-secondary/60 transition-colors"
             >
-              {openSections[category.id] ? (
-                <ChevronDown className="h-4 w-4 text-foreground" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-foreground" />
-              )}
               <span
-                className={`text-sm font-semibold ${
-                  currentCategory === category.slug
-                    ? 'text-accent'
-                    : 'text-foreground'
+                className={`text-sm font-semibold truncate ${
+                  cat.slug === currentCategorySlug ? "text-accent" : "text-foreground"
                 }`}
               >
-                {category.title}
+                {cat.name}
               </span>
-              <span className="ml-auto text-xs text-muted-foreground">
-                {category.count}
-              </span>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <span className="text-xs text-muted-foreground">{cat.count}</span>
+                {openCategories[cat.slug] ? (
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </div>
             </button>
 
-            {openSections[category.id] && (
-              <div className="ml-4 mt-2 space-y-1">
-                {category.sections.map((section) => (
-                  <div key={section.id}>
+            {openCategories[cat.slug] && (
+              <div className="ml-3 mt-1 space-y-0.5">
+                {cat.sections.map((sec) => (
+                  <div key={sec.id}>
+                    {/* Section row */}
                     <button
-                      onClick={() => toggleSection(section.id)}
-                      className="flex items-center gap-2 w-full text-left py-1 hover:opacity-70 transition-opacity"
+                      onClick={() => toggleSec(sec.slug)}
+                      className="flex items-center gap-1.5 w-full text-left py-1.5 px-2 rounded hover:bg-secondary/60 transition-colors"
                     >
-                      {openSections[section.id] ? (
-                        <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                      {openSections[sec.slug] ? (
+                        <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                       ) : (
-                        <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                        <ChevronRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                       )}
                       <span
-                        className={`text-xs ${
-                          currentSection === section.slug
-                            ? 'text-accent font-medium'
-                            : 'text-muted-foreground'
+                        className={`text-xs truncate ${
+                          sec.slug === currentSectionSlug
+                            ? "text-accent font-medium"
+                            : "text-muted-foreground"
                         }`}
                       >
-                        {section.title}
+                        {sec.name}
                       </span>
                     </button>
 
-                    {openSections[section.id] && (
-                      <div className="ml-4 mt-1 space-y-1">
-                        {section.items.map((item) => (
+                    {openSections[sec.slug] && (
+                      <div className="ml-5 mt-0.5 space-y-0.5">
+                        {sec.documents.map((doc) => (
                           <Link
-                            key={item.id}
-                            href={`/documents/${category.slug}/${section.slug}/${item.slug}`}
-                            className={`flex items-center gap-2 py-1 px-2 rounded text-xs transition-colors ${
-                              currentDocument === item.slug
-                                ? 'bg-accent/10 text-accent'
-                                : 'text-muted-foreground hover:text-foreground'
+                            key={doc._id}
+                            href={`/documents/${cat.slug}/${sec.slug}/${doc.slug}`}
+                            className={`flex items-center gap-1.5 py-1.5 px-2 rounded text-xs transition-colors ${
+                              doc.slug === currentDocSlug
+                                ? "bg-accent/10 text-accent font-medium"
+                                : "text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                             }`}
                           >
                             <FileText className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">{item.title}</span>
+                            <span className="truncate">{doc.title}</span>
                           </Link>
                         ))}
                       </div>

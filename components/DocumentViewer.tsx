@@ -1,43 +1,31 @@
-'use client';
-
-import { DocumentContent } from '@/lib/types';
+"use client";
 
 interface DocumentViewerProps {
-  document: DocumentContent;
+  contentHtml: string;
 }
 
-export function DocumentViewer({ document }: DocumentViewerProps) {
+export function DocumentViewer({ contentHtml }: DocumentViewerProps) {
+  if (!contentHtml) {
+    return (
+      <p className="text-muted-foreground italic">This document has no content yet.</p>
+    );
+  }
+
   return (
-    <div className="prose prose-sm max-w-none">
-      <div className="mb-8">
-        <p className="text-sm text-muted-foreground mb-2">Document ID: {document.docId}</p>
-      </div>
-
-      {document.sections.map((section) => (
-        <div key={section.id} id={section.id} className="mb-8 scroll-mt-20">
-          <h2 className="text-2xl font-bold text-foreground mb-4">
-            {section.number}. {section.title}
-          </h2>
-          <p className="text-foreground leading-relaxed whitespace-pre-wrap">
-            {section.content}
-          </p>
-
-          {section.subsections && section.subsections.length > 0 && (
-            <div className="ml-4 mt-6 space-y-4">
-              {section.subsections.map((subsection) => (
-                <div key={subsection.id}>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
-                    {subsection.number}. {subsection.title}
-                  </h3>
-                  <p className="text-foreground leading-relaxed whitespace-pre-wrap">
-                    {subsection.content}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
+    <article
+      className="prose prose-sm sm:prose max-w-none
+        prose-headings:font-semibold prose-headings:text-foreground
+        prose-h1:text-2xl prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-3
+        prose-h3:text-base prose-h3:mt-6 prose-h3:mb-2
+        prose-p:text-foreground/90 prose-p:leading-relaxed
+        prose-strong:text-foreground prose-strong:font-semibold
+        prose-a:text-accent prose-a:no-underline hover:prose-a:underline
+        prose-ul:list-disc prose-ol:list-decimal
+        prose-li:text-foreground/90
+        prose-blockquote:border-l-accent prose-blockquote:text-muted-foreground
+        prose-code:text-accent prose-code:bg-accent/10 prose-code:px-1 prose-code:rounded
+        prose-pre:bg-gray-900 prose-pre:text-gray-100"
+      dangerouslySetInnerHTML={{ __html: contentHtml }}
+    />
   );
 }

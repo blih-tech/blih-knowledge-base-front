@@ -20,12 +20,14 @@ import {
 
 interface RichTextEditorProps {
   value: string;
-  onChange: (value: string) => void;
+  onChange: (html: string) => void;
+  onChangeJson?: (json: object) => void;
   placeholder?: string;
   error?: string;
 }
 
-export function RichTextEditor({ value, onChange, placeholder = 'Write your content here...', error }: RichTextEditorProps) {
+
+export function RichTextEditor({ value, onChange, onChangeJson, placeholder = 'Write your content here...', error }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -40,6 +42,7 @@ export function RichTextEditor({ value, onChange, placeholder = 'Write your cont
     content: value,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
+      onChangeJson?.(editor.getJSON());
     },
   });
 

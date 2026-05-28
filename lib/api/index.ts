@@ -1,4 +1,3 @@
-export { apiClient, ApiError } from "./client";
-export { apiAxios, backendAxios } from "./axios";
+export { serverFetch, apiAxios } from "./client";
 export { authApi } from "./auth.api";
 export type { AuthUser } from "./auth.api";

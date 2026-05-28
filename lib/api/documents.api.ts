@@ -1,0 +1,89 @@
+import { serverFetch, apiAxios } from "./client";
+
+// ─── Shared Types ─────────────────────────────────────────────────────────────
+
+export interface DocSummary {
+  _id: string;
+  title: string;
+  slug: string;
+  docId: string;
+  order: number;
+}
+
+export interface SectionNode {
+  id: string;
+  name: string;
+  slug: string;
+  order: number;
+  documents: DocSummary[];
+}
+
+export interface CategoryNode {
+  id: string;
+  name: string;
+  slug: string;
+  order: number;
+  count: number;
+  sections: SectionNode[];
+}
+
+export interface FullDocument {
+  _id: string;
+  title: string;
+  slug: string;
+  docId: string;
+  contentHtml: string;
+  contentJson: object;
+  contentText: string;
+  categoryId: { _id: string; name: string; slug: string };
+  sectionId: { _id: string; name: string; slug: string };
+}
+
+export interface SearchResult {
+  _id: string;
+  title: string;
+  slug: string;
+  docId: string;
+  categoryId: { name: string; slug: string };
+  sectionId: { name: string; slug: string };
+}
+
+// ─── Public reads (server-side) ───────────────────────────────────────────────
+
+export const getFullTree = (): Promise<CategoryNode[]> =>
+  serverFetch<CategoryNode[]>("/docs");
+
+export const getDocumentBySlug = (slug: string): Promise<FullDocument> =>
+  serverFetch<FullDocument>(`/docs/doc/${slug}`);
+
+// ─── Admin writes (client-side, needs auth token) ─────────────────────────────
+
+const unwrap = <T>(res: { data: { data: T } }) => res.data.data;
+
+// Categories
+export const adminCreateCategory = (data: object) =>
+  apiAxios.post("/docs/categories", data).then(unwrap);
+export const adminUpdateCategory = (id: string, data: object) =>
+  apiAxios.put(`/docs/categories/${id}`, data).then(unwrap);
+export const adminDeleteCategory = (id: string) =>
+  apiAxios.delete(`/docs/categories/${id}`);
+
+// Sections
+export const adminCreateSection = (data: object) =>
+  apiAxios.post("/docs/sections", data).then(unwrap);
+export const adminUpdateSection = (id: string, data: object) =>
+  apiAxios.put(`/docs/sections/${id}`, data).then(unwrap);
+export const adminDeleteSection = (id: string) =>
+  apiAxios.delete(`/docs/sections/${id}`);
+
+// Documents
+export const adminCreateDocument = (data: object) =>
+  apiAxios.post("/docs/documents", data).then(unwrap);
+export const adminUpdateDocument = (id: string, data: object) =>
+  apiAxios.put(`/docs/documents/${id}`, data).then(unwrap);
+export const adminDeleteDocument = (id: string) =>
+  apiAxios.delete(`/docs/documents/${id}`);
+
+// Search
+export const searchDocuments = (q: string): Promise<SearchResult[]> =>
+  apiAxios.get(`/docs/search?q=${encodeURIComponent(q)}`).then((res) => res.data.data as SearchResult[]);
