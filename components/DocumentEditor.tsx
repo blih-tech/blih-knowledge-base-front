@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAdmin } from "@/lib/admin-context";
+import { adminGetDocumentById } from "@/lib/api/documents.api";
 import { RichTextEditor } from "./RichTextEditor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronLeft, Save, Trash2 } from "lucide-react";
+import { ChevronLeft, Save, Trash2, Loader2 } from "lucide-react";
 
 interface DocumentEditorProps {
   /** Pass _id when editing an existing document */
@@ -40,27 +41,31 @@ export function DocumentEditor({
   const [contentJson, setContentJson] = useState<object>({ type: "doc", content: [] });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingDoc, setIsLoadingDoc] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Load document data if editing
+  // Fetch full document content when editing
   useEffect(() => {
     if (!documentId) return;
-    // Find it in the tree (it's already fetched)
-    for (const cat of categories) {
-      for (const sec of cat.sections) {
-        const found = sec.documents.find((d) => d._id === documentId);
-        if (found) {
-          setTitle(found.title);
-          setDocId(found.docId ?? "");
-          setSelectedCategory(cat.id);
-          setSelectedSection(sec.id);
-          // contentHtml/contentJson aren't on the summary — would need a separate API call
-          // for full editor re-hydration; leave empty for now and let the editor start fresh
-          return;
+    setIsLoadingDoc(true);
+    adminGetDocumentById(documentId)
+      .then((doc) => {
+        setTitle(doc.title);
+        setDocId(doc.docId ?? "");
+        setSelectedCategory(
+          typeof doc.categoryId === "object" ? doc.categoryId._id : doc.categoryId
+        );
+        setSelectedSection(
+          typeof doc.sectionId === "object" ? doc.sectionId._id : doc.sectionId
+        );
+        setContentHtml(doc.contentHtml ?? "");
+        if (doc.contentJson && Object.keys(doc.contentJson).length > 0) {
+          setContentJson(doc.contentJson);
         }
-      }
-    }
-  }, [documentId, categories]);
+      })
+      .catch(() => setSaveError("Failed to load document content"))
+      .finally(() => setIsLoadingDoc(false));
+  }, [documentId]);
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -117,18 +122,27 @@ export function DocumentEditor({
     categories.find((c) => c.id === selectedCategory)?.sections ?? [];
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div>
       {/* Header */}
       <div className="mb-6 flex items-center gap-4">
         <Button variant="ghost" size="sm" onClick={onClose} className="gap-2">
           <ChevronLeft className="w-4 h-4" />
           Back
         </Button>
-        <h1 className="text-2xl font-bold text-foreground">
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">
           {documentId ? "Edit Document" : "New Document"}
         </h1>
+        {isLoadingDoc && (
+          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground ml-1" />
+        )}
       </div>
 
+      {isLoadingDoc ? (
+        <div className="space-y-4">
+          <div className="h-48 rounded-xl bg-muted animate-pulse" />
+          <div className="h-80 rounded-xl bg-muted animate-pulse" />
+        </div>
+      ) : (
       <div className="space-y-6">
         {/* Info card */}
         <Card className="p-6">
@@ -228,6 +242,7 @@ export function DocumentEditor({
           <Button onClick={onClose} variant="outline">Cancel</Button>
         </div>
       </div>
+      )}
     </div>
   );
 }

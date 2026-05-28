@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAdmin } from "@/lib/admin-context";
-import { DocumentEditor } from "@/components/DocumentEditor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,18 +20,10 @@ import {
   Edit2,
 } from "lucide-react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface EditorState {
-  mode: "new" | "edit";
-  documentId?: string;
-  defaultCategoryId?: string;
-  defaultSectionId?: string;
-}
-
 // ─── Main component ────────────────────────────────────────────────────────────
 
 function StructureManagementContent() {
+  const router = useRouter();
   const {
     categories,
     isLoading,
@@ -41,7 +33,6 @@ function StructureManagementContent() {
     deleteSection,
   } = useAdmin();
 
-  // Category tree state
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
   const [expandedSec, setExpandedSec] = useState<string | null>(null);
   const [newCatName, setNewCatName] = useState("");
@@ -50,10 +41,13 @@ function StructureManagementContent() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  // Editor state — null means the tree is shown
-  const [editorState, setEditorState] = useState<EditorState | null>(null);
+  // ─── Navigation helpers ───────────────────────────────────────────────────
 
-  // ─── Helpers ───────────────────────────────────────────────────────────────
+  const openNewDocument = (categoryId: string, sectionId: string) =>
+    router.push(`/admin/structure/new?categoryId=${categoryId}&sectionId=${sectionId}`);
+
+  const openEditDocument = (documentId: string) =>
+    router.push(`/admin/structure/${documentId}/edit`);
 
   const withBusy = async (id: string, fn: () => Promise<void>) => {
     setBusyId(id);
@@ -94,32 +88,7 @@ function StructureManagementContent() {
     withBusy(`del-sec-${id}`, () => deleteSection(id));
   };
 
-  // ─── Editor open/close ─────────────────────────────────────────────────────
-
-  const openNewDocument = (categoryId: string, sectionId: string) => {
-    setEditorState({ mode: "new", defaultCategoryId: categoryId, defaultSectionId: sectionId });
-  };
-
-  const openEditDocument = (documentId: string) => {
-    setEditorState({ mode: "edit", documentId });
-  };
-
-  const closeEditor = () => setEditorState(null);
-
-  // ─── Editor view ───────────────────────────────────────────────────────────
-
-  if (editorState) {
-    return (
-      <DocumentEditor
-        documentId={editorState.documentId}
-        defaultCategoryId={editorState.defaultCategoryId}
-        defaultSectionId={editorState.defaultSectionId}
-        onClose={closeEditor}
-      />
-    );
-  }
-
-  // ─── Tree view ─────────────────────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6">

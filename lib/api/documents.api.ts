@@ -82,6 +82,8 @@ export const adminDeleteSection = (id: string) =>
   apiAxios.delete(`/docs/sections/${id}`);
 
 // Documents
+export const adminGetDocumentById = (id: string): Promise<FullDocument> =>
+  apiAxios.get(`/docs/documents/${id}`).then((res) => res.data.data as FullDocument);
 export const adminCreateDocument = (data: object) =>
   apiAxios.post("/docs/documents", data).then(unwrap);
 export const adminUpdateDocument = (id: string, data: object) =>
