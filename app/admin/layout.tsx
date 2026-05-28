@@ -31,14 +31,16 @@ import {
   LogOut,
   ExternalLink,
   Loader2,
+  HelpCircle,
 } from "lucide-react";
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/content", label: "Manage Content", icon: FileText },
   { href: "/admin/structure", label: "Manage Structure", icon: Folder },
+  { href: "/admin/content", label: "Manage Content", icon: FileText },
+  { href: "/admin/faq", label: "FAQs", icon: HelpCircle },
 ];
 
 // ─── Admin Sidebar ────────────────────────────────────────────────────────────
