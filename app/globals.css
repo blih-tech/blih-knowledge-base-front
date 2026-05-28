@@ -5,39 +5,54 @@
 
 :root {
   --background: #f8f9fa;
-  --foreground: #1a1a1a;
+  --foreground: #111827;
   --card: #ffffff;
-  --card-foreground: #1a1a1a;
+  --card-foreground: #111827;
   --popover: #ffffff;
-  --popover-foreground: #1a1a1a;
-  --primary: #4ecdc4;
+  --popover-foreground: #111827;
+
+  /* Primary — deep teal, reads as a strong action color */
+  --primary: #0d9488;
   --primary-foreground: #ffffff;
-  --secondary: #f0f4f8;
-  --secondary-foreground: #1a1a1a;
-  --muted: #e8ebed;
-  --muted-foreground: #666666;
-  --accent: #4ecdc4;
+
+  /* Secondary — neutral cool surface */
+  --secondary: #f1f5f9;
+  --secondary-foreground: #1e293b;
+
+  /* Muted — subtle surfaces */
+  --muted: #e2e8f0;
+  --muted-foreground: #64748b;
+
+  /* Accent — used for text links & highlights (teal-700) */
+  --accent: #0f766e;
   --accent-foreground: #ffffff;
-  --destructive: #ef4444;
+
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: #e5e7eb;
+
+  --border: #e2e8f0;
   --input: #ffffff;
-  --ring: #4ecdc4;
-  --chart-1: #4ecdc4;
-  --chart-2: #3ab8b0;
-  --chart-3: #2da39f;
-  --chart-4: #29968f;
-  --chart-5: #25857f;
+  --ring: #0d9488;
+
+  --chart-1: #0d9488;
+  --chart-2: #0f766e;
+  --chart-3: #115e59;
+  --chart-4: #134e4a;
+  --chart-5: #14b8a6;
+
   --radius: 0.5rem;
+
+  /* Sidebar */
   --sidebar: #ffffff;
-  --sidebar-foreground: #1a1a1a;
-  --sidebar-primary: #4ecdc4;
+  --sidebar-foreground: #1e293b;
+  --sidebar-primary: #0d9488;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #4ecdc4;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #e5e7eb;
-  --sidebar-ring: #4ecdc4;
+  --sidebar-accent: #f0fdfa;
+  --sidebar-accent-foreground: #0d9488;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #0d9488;
 }
+
 
 .dark {
   --background: oklch(0.145 0 0);
@@ -120,6 +135,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 }

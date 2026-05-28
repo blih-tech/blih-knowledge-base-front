@@ -92,8 +92,13 @@ export const authOptions: NextAuthOptions = {
           if (err instanceof Error && err.message === "AdminAccessDenied") {
             throw err;
           }
-          if (err instanceof AxiosError && err.response?.status === 401) {
-            return null;
+          if (err instanceof AxiosError) {
+            // Throw backend message so NextAuth passes it through result.error
+            const message =
+              err.response?.data?.message ??
+              err.response?.data?.error ??
+              "Invalid email or password.";
+            throw new Error(message);
           }
           throw err;
         }

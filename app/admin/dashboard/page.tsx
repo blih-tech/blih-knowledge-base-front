@@ -1,9 +1,10 @@
 "use client";
 
 import { useAdmin } from "@/lib/admin-context";
-import { AdminLayout } from "@/components/AdminLayout";
 import { Card } from "@/components/ui/card";
-import { FileText, Folder, BookOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { FileText, Folder, BookOpen, ArrowRight } from "lucide-react";
+import Link from "next/link";
 
 function DashboardContent() {
   const { categories, isLoading } = useAdmin();
@@ -15,53 +16,126 @@ function DashboardContent() {
   const totalSections = categories.reduce((acc, cat) => acc + cat.sections.length, 0);
 
   const stats = [
-    { label: "Categories", value: categories.length, icon: <Folder className="w-8 h-8" />, color: "bg-blue-50 text-blue-600" },
-    { label: "Sections", value: totalSections, icon: <BookOpen className="w-8 h-8" />, color: "bg-green-50 text-green-600" },
-    { label: "Documents", value: totalDocuments, icon: <FileText className="w-8 h-8" />, color: "bg-purple-50 text-purple-600" },
+    {
+      label: "Categories",
+      value: categories.length,
+      icon: Folder,
+      bg: "bg-teal-50",
+      iconColor: "text-teal-700",
+      border: "border-teal-100",
+    },
+    {
+      label: "Sections",
+      value: totalSections,
+      icon: BookOpen,
+      bg: "bg-blue-50",
+      iconColor: "text-blue-700",
+      border: "border-blue-100",
+    },
+    {
+      label: "Documents",
+      value: totalDocuments,
+      icon: FileText,
+      bg: "bg-violet-50",
+      iconColor: "text-violet-700",
+      border: "border-violet-100",
+    },
+  ];
+
+  const quickLinks = [
+    {
+      href: "/admin/content",
+      label: "Manage Content",
+      description: "Create, edit, or delete documents",
+      icon: FileText,
+    },
+    {
+      href: "/admin/structure",
+      label: "Manage Structure",
+      description: "Organize categories and sections",
+      icon: Folder,
+    },
   ];
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Welcome to Admin Dashboard</h1>
-        <p className="text-muted-foreground">Manage your knowledge base content and structure</p>
+    <div className="space-y-8">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Overview of your knowledge base
+        </p>
       </div>
 
+      {/* Stats */}
       {isLoading ? (
-        <p className="text-muted-foreground py-12 text-center">Loading…</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />
+          ))}
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {stats.map((stat) => (
-            <Card key={stat.label} className="p-6">
-              <div className="flex items-center justify-between">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {stats.map(({ label, value, icon: Icon, bg, iconColor, border }) => (
+            <Card
+              key={label}
+              className={`p-6 border ${border} shadow-sm hover:shadow-md transition-shadow`}
+            >
+              <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
-                  <p className="text-3xl font-bold text-foreground">{stat.value}</p>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">{label}</p>
+                  <p className="text-4xl font-bold text-foreground">{value}</p>
                 </div>
-                <div className={`p-3 rounded-lg ${stat.color}`}>{stat.icon}</div>
+                <div className={`p-2.5 rounded-lg ${bg}`}>
+                  <Icon className={`w-5 h-5 ${iconColor}`} />
+                </div>
               </div>
             </Card>
           ))}
         </div>
       )}
 
-      <Card className="p-6">
-        <h2 className="text-xl font-bold text-foreground mb-4">Quick Info</h2>
-        <ul className="space-y-2 text-sm text-muted-foreground">
-          <li>✓ Use &quot;Manage Content&quot; to create, edit, or delete documents</li>
-          <li>✓ Use &quot;Manage Structure&quot; to organize categories and sections</li>
-          <li>✓ All changes are saved instantly to the database</li>
-          <li>✓ Published content appears immediately on the public site</li>
-        </ul>
+      {/* Quick Actions */}
+      <div>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+          Quick Actions
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {quickLinks.map(({ href, label, description, icon: Icon }) => (
+            <Link key={href} href={href}>
+              <Card className="p-5 group cursor-pointer hover:shadow-md transition-all hover:border-primary/30 border shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-teal-50 group-hover:bg-teal-100 transition-colors">
+                      <Icon className="w-4 h-4 text-teal-700" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">{label}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Tips */}
+      <Card className="p-5 border border-teal-100 bg-teal-50/30">
+        <h2 className="text-sm font-semibold text-teal-800 mb-3">Getting started</h2>
+        <ol className="space-y-2 text-sm text-teal-900/80 list-decimal list-inside">
+          <li>Create a <strong>Category</strong> (e.g. "HR Policies") in Manage Structure</li>
+          <li>Add <strong>Sections</strong> inside the category (e.g. "Leave Policy")</li>
+          <li>Go to Manage Content and create <strong>Documents</strong> inside sections</li>
+          <li>Content appears live on the public site immediately after saving</li>
+        </ol>
       </Card>
     </div>
   );
 }
 
 export default function AdminDashboardPage() {
-  return (
-    <AdminLayout>
-      <DashboardContent />
-    </AdminLayout>
-  );
+  return <DashboardContent />;
 }

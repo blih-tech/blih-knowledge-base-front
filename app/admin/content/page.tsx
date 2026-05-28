@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useAdmin } from "@/lib/admin-context";
-import { AdminLayout } from "@/components/AdminLayout";
 import { DocumentEditor } from "@/components/DocumentEditor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,7 +47,7 @@ function ContentManagementContent() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div>
       <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-1">Manage Content</h1>
@@ -116,9 +115,5 @@ function ContentManagementContent() {
 }
 
 export default function ContentManagementPage() {
-  return (
-    <AdminLayout>
-      <ContentManagementContent />
-    </AdminLayout>
-  );
+  return <ContentManagementContent />;
 }
