@@ -1,21 +1,26 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 import { AdminProvider } from "@/lib/admin-context";
-import { AuthProvider } from "@/lib/auth/auth.context";
+import { AuthProvider } from "@/lib/auth/session-provider";
 import { Loader2 } from "lucide-react";
 
 function AdminGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const isLoginPage = pathname === "/admin";
 
   useEffect(() => {
+    if (isLoginPage) return;
     if (!isLoading && !isAuthenticated) {
       router.replace("/admin");
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoginPage, isLoading, isAuthenticated, router]);
+
+  if (isLoginPage) return <>{children}</>;
 
   if (isLoading) {
     return (
@@ -25,7 +30,6 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Not authenticated — render nothing while redirect fires
   if (!isAuthenticated || !isAdmin) return null;
 
   return <>{children}</>;
@@ -39,7 +43,6 @@ export default function AdminLayout({
   return (
     <AuthProvider>
       <AdminGuard>
-        {/* Single AdminProvider for all admin/* pages */}
         <AdminProvider>{children}</AdminProvider>
       </AdminGuard>
     </AuthProvider>

@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import Link from 'next/link';
-import { isAdminAuthenticated, clearAdminSession } from '@/lib/admin-auth';
+import { signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Menu, X, LogOut, LayoutDashboard, FileText, Folder } from 'lucide-react';
 
@@ -12,28 +11,11 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    if (!isAdminAuthenticated()) {
-      router.push('/admin');
-    } else {
-      setIsAuthenticated(true);
-    }
-    setIsLoading(false);
-  }, [router]);
 
   const handleLogout = () => {
-    clearAdminSession();
-    router.push('/admin');
+    signOut({ callbackUrl: '/admin' });
   };
-
-  if (isLoading || !isAuthenticated) {
-    return <div className="min-h-screen bg-background" />;
-  }
 
   return (
     <div className="min-h-screen bg-background flex">

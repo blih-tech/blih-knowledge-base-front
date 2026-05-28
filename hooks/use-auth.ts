@@ -1,13 +1,14 @@
 "use client";
 
-import { useAuthContext } from "@/lib/auth/auth.context";
+import { useSession } from "next-auth/react";
 
-/**
- * useAuth — access auth state and actions from any client component.
- *
- * @example
- * const { user, isAdmin, login, logout } = useAuth();
- */
 export function useAuth() {
-  return useAuthContext();
+  const { data: session, status } = useSession();
+  const user = session?.user ?? null;
+  return {
+    user,
+    isAuthenticated: status === "authenticated",
+    isLoading: status === "loading",
+    isAdmin: user?.role === "admin",
+  };
 }

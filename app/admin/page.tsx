@@ -2,22 +2,20 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { AuthProvider } from "@/lib/auth/auth.context";
+import { signIn } from "next-auth/react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Lock, Mail, Loader2 } from "lucide-react";
-import { ApiError } from "@/lib/api/client";
 
 function LoginForm() {
-  const { login, isAuthenticated, isAdmin, isLoading } = useAuth();
+  const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Already authenticated admins skip the form
   useEffect(() => {
     if (!isLoading && isAuthenticated && isAdmin) {
       router.replace("/admin/dashboard");
@@ -30,20 +28,27 @@ function LoginForm() {
     setSubmitting(true);
 
     try {
-      await login(email, password);
-      router.replace("/admin/dashboard");
-    } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 401) {
-          setError("Invalid email or password.");
-        } else if (err.status === 403) {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        if (result.error === "AdminAccessDenied") {
           setError("Your account does not have admin access.");
+        } else if (result.error === "CredentialsSignin") {
+          setError("Invalid email or password.");
         } else {
-          setError(err.message);
+          setError(result.error);
         }
-      } else {
-        setError("An unexpected error occurred. Please try again.");
+        return;
       }
+
+      router.replace("/admin/dashboard");
+      router.refresh();
+    } catch {
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -139,9 +144,5 @@ function LoginForm() {
 }
 
 export default function AdminLoginPage() {
-  return (
-    <AuthProvider>
-      <LoginForm />
-    </AuthProvider>
-  );
+  return <LoginForm />;
 }
