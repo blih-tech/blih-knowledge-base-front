@@ -48,10 +48,15 @@ export interface SearchResult {
   sectionId: { name: string; slug: string };
 }
 
-// ─── Public reads (server-side) ───────────────────────────────────────────────
+// ─── Public reads (server-side, for Server Components) ─────────────────────────
 
 export const getFullTree = (): Promise<CategoryNode[]> =>
   serverFetch<CategoryNode[]>("/docs");
+
+// ─── Admin reads (client-side, attaches auth token via getSession) ───────────────
+
+export const getFullTreeClient = (): Promise<CategoryNode[]> =>
+  apiAxios.get("/docs").then((res) => res.data.data as CategoryNode[]);
 
 export const getDocumentBySlug = (slug: string): Promise<FullDocument> =>
   serverFetch<FullDocument>(`/docs/doc/${slug}`);

@@ -5,7 +5,7 @@ import {
   CategoryNode,
   SectionNode,
   DocSummary,
-  getFullTree,
+  getFullTreeClient,
   adminCreateCategory,
   adminUpdateCategory,
   adminDeleteCategory,
@@ -62,7 +62,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     setError(null);
     try {
-      const tree = await getFullTree();
+      const tree = await getFullTreeClient();
       setCategories(tree);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load content");

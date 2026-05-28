@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAdmin } from "@/lib/admin-context";
+import { DocumentEditor } from "@/components/DocumentEditor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,20 @@ import {
   AlertCircle,
   Folder,
   BookOpen,
+  FileText,
+  Edit2,
 } from "lucide-react";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface EditorState {
+  mode: "new" | "edit";
+  documentId?: string;
+  defaultCategoryId?: string;
+  defaultSectionId?: string;
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
 
 function StructureManagementContent() {
   const {
@@ -27,12 +41,19 @@ function StructureManagementContent() {
     deleteSection,
   } = useAdmin();
 
+  // Category tree state
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
+  const [expandedSec, setExpandedSec] = useState<string | null>(null);
   const [newCatName, setNewCatName] = useState("");
   const [addingSection, setAddingSection] = useState<string | null>(null);
   const [newSecName, setNewSecName] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Editor state — null means the tree is shown
+  const [editorState, setEditorState] = useState<EditorState | null>(null);
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
 
   const withBusy = async (id: string, fn: () => Promise<void>) => {
     setBusyId(id);
@@ -73,13 +94,40 @@ function StructureManagementContent() {
     withBusy(`del-sec-${id}`, () => deleteSection(id));
   };
 
+  // ─── Editor open/close ─────────────────────────────────────────────────────
+
+  const openNewDocument = (categoryId: string, sectionId: string) => {
+    setEditorState({ mode: "new", defaultCategoryId: categoryId, defaultSectionId: sectionId });
+  };
+
+  const openEditDocument = (documentId: string) => {
+    setEditorState({ mode: "edit", documentId });
+  };
+
+  const closeEditor = () => setEditorState(null);
+
+  // ─── Editor view ───────────────────────────────────────────────────────────
+
+  if (editorState) {
+    return (
+      <DocumentEditor
+        documentId={editorState.documentId}
+        defaultCategoryId={editorState.defaultCategoryId}
+        defaultSectionId={editorState.defaultSectionId}
+        onClose={closeEditor}
+      />
+    );
+  }
+
+  // ─── Tree view ─────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Manage Structure</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Organize your knowledge base into categories and sections
+          Organize categories, sections, and documents in one place
         </p>
       </div>
 
@@ -91,7 +139,7 @@ function StructureManagementContent() {
         </div>
       )}
 
-      {/* Add Category card */}
+      {/* Add Category */}
       <Card className="p-5 border shadow-sm">
         <h2 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
           <Folder className="w-4 h-4 text-teal-600" />
@@ -137,19 +185,19 @@ function StructureManagementContent() {
       ) : (
         <div className="space-y-2">
           {categories.map((category) => {
-            const isExpanded = expandedCat === category.id;
+            const isCatExpanded = expandedCat === category.id;
             const isDeleting = busyId === `del-cat-${category.id}`;
 
             return (
               <Card key={category.id} className="overflow-hidden border shadow-sm p-0">
-                {/* Category row */}
+                {/* ── Category row ── */}
                 <div
                   className="flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-secondary/60 transition-colors select-none"
-                  onClick={() => setExpandedCat(isExpanded ? null : category.id)}
+                  onClick={() => setExpandedCat(isCatExpanded ? null : category.id)}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-1.5 rounded-md bg-teal-50">
-                      {isExpanded ? (
+                    <div className="p-1.5 rounded-md bg-teal-50 shrink-0">
+                      {isCatExpanded ? (
                         <ChevronDown className="w-3.5 h-3.5 text-teal-700" />
                       ) : (
                         <ChevronRight className="w-3.5 h-3.5 text-teal-700" />
@@ -167,15 +215,11 @@ function StructureManagementContent() {
                       </Badge>
                     </div>
                   </div>
-
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     disabled={isDeleting}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteCategory(category.id, category.name);
-                    }}
+                    onClick={(e) => { e.stopPropagation(); handleDeleteCategory(category.id, category.name); }}
                     className="text-muted-foreground hover:text-red-600 hover:bg-red-50 shrink-0"
                   >
                     {isDeleting ? (
@@ -186,45 +230,110 @@ function StructureManagementContent() {
                   </Button>
                 </div>
 
-                {/* Expanded: sections */}
-                {isExpanded && (
-                  <div className="border-t border-border bg-secondary/30 p-4 space-y-2">
-                    {/* Section rows */}
+                {/* ── Sections ── */}
+                {isCatExpanded && (
+                  <div className="border-t border-border bg-secondary/20 p-4 space-y-2">
                     {category.sections.length === 0 && addingSection !== category.id && (
-                      <p className="text-xs text-muted-foreground ml-8 mb-2">
+                      <p className="text-xs text-muted-foreground ml-8 mb-1">
                         No sections yet — add one below.
                       </p>
                     )}
 
                     {category.sections.map((section) => {
+                      const isSecExpanded = expandedSec === section.id;
                       const isDeletingSec = busyId === `del-sec-${section.id}`;
+
                       return (
-                        <div
-                          key={section.id}
-                          className="ml-7 flex items-center justify-between bg-white rounded-lg border border-border px-3 py-2.5 shadow-xs"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                            <span className="text-sm font-medium text-foreground truncate">
-                              {section.name}
-                            </span>
-                            <span className="text-xs text-muted-foreground shrink-0">
-                              {section.documents.length} doc{section.documents.length !== 1 ? "s" : ""}
-                            </span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            disabled={isDeletingSec}
-                            onClick={() => handleDeleteSection(section.id, section.name)}
-                            className="text-muted-foreground hover:text-red-600 hover:bg-red-50 shrink-0"
+                        <div key={section.id} className="ml-7">
+                          {/* Section row */}
+                          <div
+                            className="flex items-center justify-between bg-white rounded-lg border border-border px-3 py-2.5 shadow-xs cursor-pointer hover:bg-secondary/40 transition-colors select-none"
+                            onClick={() => setExpandedSec(isSecExpanded ? null : section.id)}
                           >
-                            {isDeletingSec ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                          </Button>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {isSecExpanded ? (
+                                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              ) : (
+                                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              )}
+                              <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              <span className="text-sm font-medium text-foreground truncate">
+                                {section.name}
+                              </span>
+                              <Badge variant="secondary" className="text-xs font-normal shrink-0">
+                                {section.documents.length} doc{section.documents.length !== 1 ? "s" : ""}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openNewDocument(category.id, section.id);
+                                }}
+                                className="text-muted-foreground hover:text-primary hover:bg-teal-50"
+                                title="Add document to this section"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                disabled={isDeletingSec}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSection(section.id, section.name);
+                                }}
+                                className="text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                              >
+                                {isDeletingSec ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Document list inside section */}
+                          {isSecExpanded && (
+                            <div className="ml-6 mt-1.5 space-y-1">
+                              {section.documents.length === 0 ? (
+                                <p className="text-xs text-muted-foreground px-2 py-1.5">
+                                  No documents yet.
+                                </p>
+                              ) : (
+                                section.documents.map((doc) => (
+                                  <button
+                                    key={doc._id}
+                                    onClick={() => openEditDocument(doc._id)}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white border border-border text-left hover:bg-teal-50 hover:border-teal-200 transition-colors group shadow-xs"
+                                  >
+                                    <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0 group-hover:text-teal-600" />
+                                    <span className="text-sm text-foreground truncate flex-1">
+                                      {doc.title}
+                                    </span>
+                                    {doc.docId && (
+                                      <span className="text-xs font-mono text-muted-foreground shrink-0">
+                                        {doc.docId}
+                                      </span>
+                                    )}
+                                    <Edit2 className="w-3 h-3 text-muted-foreground/30 group-hover:text-teal-600 shrink-0 transition-colors" />
+                                  </button>
+                                ))
+                              )}
+
+                              {/* Add document inline CTA */}
+                              <button
+                                onClick={() => openNewDocument(category.id, section.id)}
+                                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:border-primary hover:text-primary hover:bg-teal-50 transition-colors"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                Add document to &ldquo;{section.name}&rdquo;
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -248,17 +357,12 @@ function StructureManagementContent() {
                         >
                           {busyId === `new-sec-${category.id}` ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            "Add"
-                          )}
+                          ) : "Add"}
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => {
-                            setAddingSection(null);
-                            setNewSecName("");
-                          }}
+                          onClick={() => { setAddingSection(null); setNewSecName(""); }}
                           className="shrink-0"
                         >
                           Cancel
