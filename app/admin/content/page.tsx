@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AdminProvider, useAdmin } from '@/lib/admin-context';
+import { useAdmin } from '@/lib/admin-context';
 import { AdminLayout } from '@/components/AdminLayout';
 import { DocumentEditor } from '@/components/DocumentEditor';
 import { Card } from '@/components/ui/card';
@@ -116,10 +116,8 @@ function ContentManagementContent() {
 
 export default function ContentManagementPage() {
   return (
-    <AdminProvider>
-      <AdminLayout>
-        <ContentManagementContent />
-      </AdminLayout>
-    </AdminProvider>
+    <AdminLayout>
+      <ContentManagementContent />
+    </AdminLayout>
   );
 }

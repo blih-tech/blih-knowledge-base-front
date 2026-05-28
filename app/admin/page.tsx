@@ -1,49 +1,66 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { isAdminAuthenticated, setAdminSession } from '@/lib/admin-auth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Lock } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { AuthProvider } from "@/lib/auth/auth.context";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Lock, Mail, Loader2 } from "lucide-react";
+import { ApiError } from "@/lib/api/client";
 
-export default function AdminLoginPage() {
+function LoginForm() {
+  const { login, isAuthenticated, isAdmin, isLoading } = useAuth();
   const router = useRouter();
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  // Check if already authenticated
+  // Already authenticated admins skip the form
   useEffect(() => {
-    if (isAdminAuthenticated()) {
-      router.push('/admin/dashboard');
+    if (!isLoading && isAuthenticated && isAdmin) {
+      router.replace("/admin/dashboard");
     }
-  }, [router]);
+  }, [isLoading, isAuthenticated, isAdmin, router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
+    setError("");
+    setSubmitting(true);
 
     try {
-      if (setAdminSession(password)) {
-        setPassword('');
-        router.push('/admin/dashboard');
-      } else {
-        setError('Invalid password. Please try again.');
-        setPassword('');
-      }
+      await login(email, password);
+      router.replace("/admin/dashboard");
     } catch (err) {
-      setError('An error occurred. Please try again.');
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          setError("Invalid email or password.");
+        } else if (err.status === 403) {
+          setError("Your account does not have admin access.");
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
     } finally {
-      setIsLoading(false);
+      setSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary to-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo Section */}
+        {/* Logo */}
         <div className="mb-8 text-center">
           <div className="flex items-center justify-center mb-4">
             <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center">
@@ -54,39 +71,77 @@ export default function AdminLoginPage() {
           <p className="text-muted-foreground">Blih Brain Knowledge Base Management</p>
         </div>
 
-        {/* Login Form */}
+        {/* Form */}
         <div className="bg-card rounded-lg shadow-lg p-8 border border-border">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
-                Admin Password
+              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+                Email
               </label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter admin password"
-                disabled={isLoading}
-                autoFocus
-                className="w-full"
-              />
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@example.com"
+                  disabled={submitting}
+                  autoFocus
+                  autoComplete="email"
+                  className="pl-9 w-full"
+                  required
+                />
+              </div>
             </div>
 
-            {error && <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">{error}</div>}
+            {/* Password */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  disabled={submitting}
+                  autoComplete="current-password"
+                  className="pl-9 w-full"
+                  required
+                />
+              </div>
+            </div>
 
-            <Button type="submit" disabled={isLoading || !password} className="w-full">
-              {isLoading ? 'Logging in...' : 'Login'}
+            {error && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              disabled={submitting || !email || !password}
+              className="w-full gap-2"
+            >
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              {submitting ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-border">
-            <p className="text-xs text-muted-foreground text-center">
-              Default password: <code className="bg-secondary px-2 py-1 rounded text-foreground">admin123</code>
-            </p>
-          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <AuthProvider>
+      <LoginForm />
+    </AuthProvider>
   );
 }

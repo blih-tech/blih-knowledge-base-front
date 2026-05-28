@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AdminProvider, useAdmin } from '@/lib/admin-context';
+import { useAdmin } from '@/lib/admin-context';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,8 @@ function StructureManagementContent() {
     const newCat: typeof categories[0] = {
       id: `cat-${Date.now()}`,
       title: newCatTitle,
+      slug: newCatTitle.toLowerCase().replace(/\s+/g, '-'),
+      count: 0,
       sections: [],
     };
 
@@ -39,6 +41,7 @@ function StructureManagementContent() {
         {
           id: `sec-${Date.now()}`,
           title: newSecTitle,
+          slug: newSecTitle.toLowerCase().replace(/\s+/g, '-'),
           items: [],
         },
       ],
@@ -198,10 +201,8 @@ function StructureManagementContent() {
 
 export default function StructureManagementPage() {
   return (
-    <AdminProvider>
-      <AdminLayout>
-        <StructureManagementContent />
-      </AdminLayout>
-    </AdminProvider>
+    <AdminLayout>
+      <StructureManagementContent />
+    </AdminLayout>
   );
 }

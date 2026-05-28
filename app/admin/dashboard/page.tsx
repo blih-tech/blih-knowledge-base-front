@@ -1,6 +1,6 @@
 'use client';
 
-import { AdminProvider, useAdmin } from '@/lib/admin-context';
+import { useAdmin } from '@/lib/admin-context';
 import { AdminLayout } from '@/components/AdminLayout';
 import { Card } from '@/components/ui/card';
 import { FileText, Folder, BookOpen } from 'lucide-react';
@@ -77,10 +77,8 @@ function DashboardContent() {
 
 export default function AdminDashboardPage() {
   return (
-    <AdminProvider>
-      <AdminLayout>
-        <DashboardContent />
-      </AdminLayout>
-    </AdminProvider>
+    <AdminLayout>
+      <DashboardContent />
+    </AdminLayout>
   );
 }
