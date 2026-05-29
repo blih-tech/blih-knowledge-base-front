@@ -11,11 +11,11 @@ export const metadata: Metadata = {
   description: "Blih Brain Knowledge Base and Documentation Platform",
   icons: {
     icon: [
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-dark-32x32.png", sizes: "32x32", type: "image/png" },
     ],
+    shortcut: "/icon.svg",
+    apple: "/apple-icon.png",
   },
 };
 

@@ -104,7 +104,7 @@ function AdminSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip="Sign out"
-              onClick={() => signOut({ callbackUrl: "/admin" })}
+              onClick={() => signOut({ callbackUrl: "/auth/login" })}
               className="text-destructive hover:text-destructive hover:bg-destructive/10"
             >
               <LogOut className="size-4" />
@@ -122,18 +122,12 @@ function AdminSidebar() {
 function AdminGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
-  const isLoginPage = pathname === "/admin";
 
   useEffect(() => {
-    if (isLoginPage) return;
     if (!isLoading && !isAuthenticated) {
-      router.replace("/admin");
+      router.replace("/auth/login");
     }
-  }, [isLoginPage, isLoading, isAuthenticated, router]);
-
-  // Login page — no sidebar
-  if (isLoginPage) return <>{children}</>;
+  }, [isLoading, isAuthenticated, router]);
 
   if (isLoading) {
     return (

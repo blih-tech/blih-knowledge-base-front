@@ -55,7 +55,7 @@ export function Header({ showNav = true }: HeaderProps) {
 
           {/* Login CTA */}
           <Button asChild size="sm" className="ml-4 shrink-0">
-            <Link href="/admin/login">Login</Link>
+            <Link href="/auth/login">Login</Link>
           </Button>
         </div>
       </div>
