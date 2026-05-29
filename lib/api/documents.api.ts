@@ -94,3 +94,16 @@ export const adminDeleteDocument = (id: string) =>
 // Search
 export const searchDocuments = (q: string): Promise<SearchResult[]> =>
   apiAxios.get(`/docs/search?q=${encodeURIComponent(q)}`).then((res) => res.data.data as SearchResult[]);
+
+// File → HTML parsing
+export const parseDocumentFile = async (
+  file: File
+): Promise<{ html: string; title?: string }> => {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await apiAxios.post('/docs/parse-file', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data.data as { html: string; title?: string };
+};
+

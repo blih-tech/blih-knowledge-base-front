@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChevronLeft, Save, Trash2, Loader2 } from "lucide-react";
+import { FileImportButton } from "./FileImportButton";
 
 interface DocumentEditorProps {
   /** Pass _id when editing an existing document */
@@ -39,6 +40,7 @@ export function DocumentEditor({
   const [selectedSection, setSelectedSection] = useState(defaultSectionId ?? "");
   const [contentHtml, setContentHtml] = useState("");
   const [contentJson, setContentJson] = useState<object>({ type: "doc", content: [] });
+  const [contentVersion, setContentVersion] = useState(0); // bumped on file import to sync editor
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
@@ -79,6 +81,16 @@ export function DocumentEditor({
   // Plain-text extraction from HTML for search indexing
   const extractText = (html: string) =>
     html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+  /** Called by FileImportButton after successful parse */
+  const handleImport = (html: string, importedTitle?: string) => {
+    setContentHtml(html);
+    setContentVersion((v) => v + 1); // triggers RichTextEditor to sync
+    // Auto-fill title only when it's currently empty
+    if (importedTitle && !title.trim()) {
+      setTitle(importedTitle);
+    }
+  };
 
   const handleSave = async () => {
     if (!validate()) return;
@@ -211,12 +223,19 @@ export function DocumentEditor({
 
         {/* Editor card */}
         <Card className="p-6">
-          <h2 className="text-base font-semibold text-foreground mb-4">Content</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-foreground">Content</h2>
+            <FileImportButton
+              onImport={handleImport}
+              hasContent={contentHtml.trim().length > 0}
+            />
+          </div>
           <RichTextEditor
             value={contentHtml}
             onChange={setContentHtml}
             onChangeJson={setContentJson}
             placeholder="Write your document content here..."
+            externalContentVersion={contentVersion}
           />
         </Card>
 

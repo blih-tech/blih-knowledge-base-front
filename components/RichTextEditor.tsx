@@ -1,9 +1,10 @@
 'use client';
 
+import { useEffect } from 'react';
+
 import { useEditor, EditorContent } from '@tiptap/react';
 import { Mark, mergeAttributes, type RawCommands } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
 import {
   Bold,
@@ -74,6 +75,8 @@ interface RichTextEditorProps {
   onChangeJson?: (json: object) => void;
   placeholder?: string;
   error?: string;
+  /** Bump this to imperatively replace editor content with the current `value` */
+  externalContentVersion?: number;
 }
 
 export function RichTextEditor({
@@ -82,12 +85,19 @@ export function RichTextEditor({
   onChangeJson,
   placeholder = 'Write your content here...',
   error,
+  externalContentVersion,
 }: RichTextEditorProps) {
   const editor = useEditor({
+    immediatelyRender: false, // prevents SSR/hydration mismatch in Next.js
     extensions: [
-      StarterKit.configure({ heading: false }), // disable block headings — using inline marks instead
+      StarterKit.configure({
+        heading: false, // disable block headings — using inline marks instead
+        link: {         // configure the built-in StarterKit link instead of adding a duplicate
+          openOnClick: false,
+          autolink: true,
+        },
+      }),
       TextSize,
-      Link.configure({ openOnClick: false, autolink: true }),
       Placeholder.configure({ placeholder }),
     ],
     content: value,
@@ -96,6 +106,16 @@ export function RichTextEditor({
       onChangeJson?.(editor.getJSON());
     },
   });
+
+  // When externalContentVersion bumps, force-set the editor content
+  // (e.g. after a file import)
+  useEffect(() => {
+    if (!editor || externalContentVersion === undefined || externalContentVersion === 0) return;
+    editor.commands.setContent(value, false);
+    onChange(editor.getHTML());
+    onChangeJson?.(editor.getJSON());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalContentVersion]);
 
   if (!editor) return null;
 
