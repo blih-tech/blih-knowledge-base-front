@@ -12,7 +12,7 @@ export class ApiError extends Error {
 }
 
 const BACKEND_BASE_URL =
-  process.env.BACKEND_API_URL ?? "http://localhost:5000/api/v1";
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000/api/v1";
 
 export const backendAxios: AxiosInstance = axios.create({
   baseURL: BACKEND_BASE_URL,
