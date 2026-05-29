@@ -7,10 +7,11 @@ import type { CategoryNode } from "@/lib/api/documents.api";
 
 interface SearchWrapperProps {
   categories: CategoryNode[];
+  initialQuery?: string;
 }
 
-export function SearchWrapper({ categories }: SearchWrapperProps) {
-  const [query, setQuery] = useState("");
+export function SearchWrapper({ categories, initialQuery = "" }: SearchWrapperProps) {
+  const [query, setQuery] = useState(initialQuery);
 
   const filtered = query.trim()
     ? categories

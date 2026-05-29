@@ -1,4 +1,3 @@
-import { Header } from "@/components/Header";
 import { getAllFaqs, type Faq } from "@/lib/api/faq.api";
 import { HelpCircle, ChevronDown } from "lucide-react";
 
@@ -19,8 +18,6 @@ export default async function FaqPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header showNav />
-
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-16">
         {/* Hero */}
         <div className="flex items-center gap-3 mb-2">

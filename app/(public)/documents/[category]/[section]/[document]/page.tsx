@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
-import { Header } from "@/components/Header";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { Sidebar } from "@/components/Sidebar";
 import { DocumentViewer } from "@/components/DocumentViewer";
 import { TableOfContents } from "@/components/TableOfContents";
+import { PrintButton } from "@/components/PrintButton";
 import { getFullTree, getDocumentBySlug } from "@/lib/api/documents.api";
+import { Search } from "lucide-react";
 
 interface Props {
   params: Promise<{ category: string; section: string; document: string }>;
@@ -47,12 +48,23 @@ export default async function DocumentPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header showNav={false} />
+    <div className="min-h-screen bg-white">
+      {/* Premium minimal Search Header Banner */}
+      <div className="bg-[#ebf1f6] py-7 px-6 flex justify-center items-center print:hidden border-b border-[#e2e8f0]/40">
+        <form action="/" method="GET" className="relative w-full max-w-2xl">
+          <Search className="absolute left-4.5 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            name="q"
+            placeholder="Search"
+            className="w-full pl-13 pr-5 py-3.5 bg-white border border-[#e2e8f0] text-slate-800 text-base rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/20 transition-all font-medium placeholder:text-slate-400 placeholder:font-normal"
+          />
+        </form>
+      </div>
 
-      <div className="flex">
+      <div className="flex max-w-[1440px] mx-auto">
         {/* Left Sidebar */}
-        <div className="hidden lg:block">
+        <div className="hidden lg:block print:hidden flex-shrink-0">
           <Sidebar
             categories={categories}
             currentCategorySlug={categorySlug}
@@ -61,26 +73,38 @@ export default async function DocumentPage({ params }: Props) {
           />
         </div>
 
-        {/* Main content */}
-        <div className="flex-1 flex flex-col xl:flex-row min-w-0">
-          <div className="flex-1 min-w-0 px-6 lg:px-10 py-8 max-w-4xl">
+        {/* Main Content & Table of Contents */}
+        <div className="flex-1 flex flex-col md:flex-row min-w-0">
+          {/* Document Content */}
+          <div className="flex-1 min-w-0 px-6 sm:px-10 lg:px-14 py-9 max-w-4xl print:p-0">
             <Breadcrumbs items={breadcrumbs} />
 
-            <div className="mt-6 mb-8">
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight mb-2">
+            {/* Document Header */}
+            <div className="mt-5 mb-8">
+              <h1 className="text-[28px] sm:text-[32px] font-bold text-slate-800 leading-tight mb-2 tracking-tight">
                 {doc.title}
               </h1>
-              {doc.docId && (
-                <p className="text-xs text-muted-foreground font-mono">{doc.docId}</p>
-              )}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                {doc.docId ? (
+                  <p className="text-[13px] text-slate-500 font-mono tracking-wide font-medium">
+                    {doc.docId}
+                  </p>
+                ) : (
+                  <div />
+                )}
+                <PrintButton />
+              </div>
             </div>
 
-            <DocumentViewer contentHtml={doc.contentHtml} />
+            {/* Document Body */}
+            <div className="mt-6">
+              <DocumentViewer contentHtml={doc.contentHtml} />
+            </div>
           </div>
 
           {/* Right TOC */}
           {tocItems.length > 0 && (
-            <div className="hidden xl:block w-56 flex-shrink-0 border-l border-border px-6 py-8">
+            <div className="hidden xl:block w-60 flex-shrink-0 px-8 py-9 print:hidden border-l border-slate-100">
               <TableOfContents items={tocItems} />
             </div>
           )}

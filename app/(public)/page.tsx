@@ -1,10 +1,14 @@
-import { Header } from "@/components/Header";
 import { SearchWrapper } from "@/components/SearchWrapper";
 import { getFullTree, type CategoryNode } from "@/lib/api/documents.api";
 
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
+interface Props {
+  searchParams: Promise<{ q?: string }>;
+}
+
+export default async function Home({ searchParams }: Props) {
+  const { q } = await searchParams;
   let categories: CategoryNode[] = [];
   try {
     categories = await getFullTree();
@@ -13,11 +17,8 @@ export default async function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header showNav />
-      <main>
-        <SearchWrapper categories={categories} />
-      </main>
-    </div>
+    <main>
+      <SearchWrapper categories={categories} initialQuery={q} />
+    </main>
   );
 }

@@ -1,4 +1,3 @@
-import { Header } from "@/components/Header";
 import { ChatInterface } from "@/components/ChatInterface";
 
 export const metadata = {
@@ -8,8 +7,7 @@ export const metadata = {
 
 export default function AskAiPage() {
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <Header showNav />
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-background overflow-hidden">
       {/* Full-height chat below header */}
       <div className="flex-1 min-h-0">
         <div className="h-full max-w-3xl mx-auto w-full">

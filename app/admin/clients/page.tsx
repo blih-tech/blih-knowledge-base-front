@@ -1,0 +1,283 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  listClients,
+  createClient,
+  deleteClient,
+  type Client,
+} from "@/lib/api/clients.api";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Plus,
+  Search,
+  Trash2,
+  ChevronRight,
+  Loader2,
+  Users,
+  AlertCircle,
+  X,
+  Building2,
+  Mail,
+} from "lucide-react";
+
+// ─── Initials avatar ──────────────────────────────────────────────────────────
+
+const AVATAR_COLORS = [
+  "bg-violet-100 text-violet-700",
+  "bg-blue-100 text-blue-700",
+  "bg-emerald-100 text-emerald-700",
+  "bg-amber-100 text-amber-700",
+  "bg-rose-100 text-rose-700",
+  "bg-sky-100 text-sky-700",
+];
+
+function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
+  const initials = name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
+  const colorClass = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+  const sizeClass = size === "lg" ? "w-14 h-14 text-xl" : size === "sm" ? "w-8 h-8 text-xs" : "w-10 h-10 text-sm";
+  return (
+    <div className={`${sizeClass} ${colorClass} rounded-full flex items-center justify-center font-semibold shrink-0`}>
+      {initials}
+    </div>
+  );
+}
+
+// ─── Create client modal ──────────────────────────────────────────────────────
+
+function CreateClientModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (c: Client) => void;
+}) {
+  const [form, setForm] = useState({ name: "", company: "", industry: "", email: "", phone: "" });
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const client = await createClient(form);
+      onCreate(client);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create client");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const field = (key: keyof typeof form, label: string, placeholder: string, type = "text") => (
+    <div>
+      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+      <Input
+        type={type}
+        value={form[key]}
+        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-base font-semibold">New Client</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {field("name", "Full Name *", "e.g. John Smith")}
+          {field("company", "Company", "e.g. Acme Corp")}
+          {field("industry", "Industry", "e.g. Finance, Retail")}
+          {field("email", "Email", "john@example.com", "email")}
+          {field("phone", "Phone", "+251 911 000 000")}
+          {error && (
+            <p className="text-sm text-red-600 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5" /> {error}
+            </p>
+          )}
+          <div className="flex gap-2 pt-2">
+            <Button type="submit" disabled={!form.name.trim() || isSaving} className="flex-1 gap-2">
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              Create Client
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
+export default function AdminClientsPage() {
+  const router = useRouter();
+  const [data, setData] = useState<{ clients: Client[]; total: number } | null>(null);
+  const [search, setSearch] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const load = useCallback(async (q?: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await listClients({ search: q, limit: 50 });
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load clients");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => load(search || undefined), 300);
+    return () => clearTimeout(t);
+  }, [search, load]);
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Delete "${name}" and all their observations? This cannot be undone.`)) return;
+    setDeletingId(id);
+    try {
+      await deleteClient(id);
+      setData((d) => d ? { ...d, clients: d.clients.filter((c) => c._id !== id), total: d.total - 1 } : d);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete client");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Clients</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Collaborative behavioral intelligence on your clients
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {data && <Badge variant="secondary">{data.total} client{data.total !== 1 ? "s" : ""}</Badge>}
+          <Button size="sm" onClick={() => setShowCreate(true)} className="gap-1.5">
+            <Plus className="w-4 h-4" /> Add Client
+          </Button>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search clients by name or company…"
+          className="pl-9"
+        />
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+          <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+        </div>
+      )}
+
+      {/* List */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />)}
+        </div>
+      ) : !data?.clients.length ? (
+        <Card className="p-12 text-center border-dashed">
+          <Users className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">
+            {search ? "No clients match your search." : "No clients yet. Add your first client."}
+          </p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {data.clients.map((client) => (
+            <Card
+              key={client._id}
+              className="p-4 flex items-start gap-3 hover:shadow-md transition-shadow cursor-pointer group"
+              onClick={() => router.push(`/admin/clients/${client._id}`)}
+            >
+              <Avatar name={client.name} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm text-foreground truncate">{client.name}</p>
+                    {client.company && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <Building2 className="w-3 h-3" /> {client.company}
+                      </p>
+                    )}
+                    {client.email && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Mail className="w-3 h-3" /> {client.email}
+                      </p>
+                    )}
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 mt-0.5" />
+                </div>
+                {client.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {client.tags.slice(0, 3).map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                    ))}
+                    {client.tags.length > 3 && (
+                      <Badge variant="outline" className="text-xs">+{client.tags.length - 3}</Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDelete(client._id, client.name); }}
+                disabled={deletingId === client._id}
+                className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                title="Delete client"
+              >
+                {deletingId === client._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+              </button>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {showCreate && (
+        <CreateClientModal
+          onClose={() => setShowCreate(false)}
+          onCreate={(c) => {
+            setData((d) => d ? { clients: [c, ...d.clients], total: d.total + 1 } : { clients: [c], total: 1 });
+            setShowCreate(false);
+            router.push(`/admin/clients/${c._id}`);
+          }}
+        />
+      )}
+    </div>
+  );
+}

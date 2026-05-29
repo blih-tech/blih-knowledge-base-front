@@ -32,6 +32,7 @@ import {
   ExternalLink,
   Loader2,
   HelpCircle,
+  Users,
 } from "lucide-react";
 
 // ─── Nav items ────────────────────────────────────────────────────────────────
@@ -40,6 +41,7 @@ const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/structure", label: "Manage Structure", icon: Folder },
   { href: "/admin/content", label: "Manage Content", icon: FileText },
+  { href: "/admin/clients", label: "Clients", icon: Users },
   { href: "/admin/faq", label: "FAQs", icon: HelpCircle },
 ];
 
