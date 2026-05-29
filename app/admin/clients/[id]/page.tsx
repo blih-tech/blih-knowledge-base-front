@@ -4,17 +4,12 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  getClient,
-  listObservations,
-  createObservation,
-  updateObservation,
-  deleteObservation,
-  updateClient,
-  type Client,
-  type Observation,
-  type ObservationType,
-  type SentimentType,
+  getClient, listObservations, createObservation,
+  updateObservation, deleteObservation, updateClient,
+  type Client, type Observation, type ObservationType, type SentimentType, type ClientStatus,
 } from "@/lib/api/clients.api";
+import { useAdminAI } from "@/lib/admin-ai-context";
+import { ContactsPanel } from "@/components/ContactsPanel";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,8 +17,23 @@ import { Input } from "@/components/ui/input";
 import {
   ThumbsUp, ThumbsDown, Star, Activity, MessageSquare,
   FileText, ArrowLeft, Plus, Edit2, Trash2, Save, X,
-  Lock, Loader2, AlertCircle, Sparkles,
+  Lock, Loader2, AlertCircle, Sparkles, Globe, Heart,
 } from "lucide-react";
+
+const STATUS_CONFIG: Record<ClientStatus, { label: string; color: string }> = {
+  prospect:  { label: "Prospect",  color: "bg-sky-100 text-sky-700 border-sky-200" },
+  active:    { label: "Active",    color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  "at-risk": { label: "At Risk",   color: "bg-amber-100 text-amber-700 border-amber-200" },
+  paused:    { label: "Paused",    color: "bg-gray-100 text-gray-600 border-gray-200" },
+  churned:   { label: "Churned",   color: "bg-red-100 text-red-700 border-red-200" },
+};
+
+const TIER_COLORS: Record<string, string> = {
+  enterprise: "bg-violet-100 text-violet-700 border-violet-200",
+  "mid-market": "bg-blue-100 text-blue-700 border-blue-200",
+  smb: "bg-teal-100 text-teal-700 border-teal-200",
+  startup: "bg-orange-100 text-orange-700 border-orange-200",
+};
 
 // ─── Observation type config ──────────────────────────────────────────────────
 
@@ -310,30 +320,30 @@ function ObservationCard({
 export default function ClientProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { open: openAI } = useAdminAI();
   const [client, setClient] = useState<Client | null>(null);
   const [typeCounts, setTypeCounts] = useState<Record<string, number>>({});
   const [observations, setObservations] = useState<Observation[]>([]);
+  const [contacts, setContacts] = useState<import("@/lib/api/clients.api").Contact[]>([]);
+  const [healthScore, setHealthScore] = useState(50);
   const [filterType, setFilterType] = useState<ObservationType | "all">("all");
+  const [activeTab, setActiveTab] = useState<"observations" | "contacts">("observations");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
-      setIsLoading(true);
-      setError(null);
+      setIsLoading(true); setError(null);
       try {
-        const [detail, obs] = await Promise.all([
-          getClient(id),
-          listObservations(id),
-        ]);
+        const [detail, obs] = await Promise.all([getClient(id), listObservations(id)]);
         setClient(detail.client);
         setTypeCounts(detail.typeCounts);
+        setContacts(detail.contacts ?? []);
+        setHealthScore(detail.healthScore ?? 50);
         setObservations(obs);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load client");
-      } finally {
-        setIsLoading(false);
-      }
+      } finally { setIsLoading(false); }
     };
     load();
   }, [id]);
@@ -375,90 +385,133 @@ export default function ClientProfilePage({ params }: { params: Promise<{ id: st
         <div className="flex items-start gap-4">
           <Avatar name={client.name} size="lg" />
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold text-foreground">{client.name}</h1>
-            {client.company && <p className="text-sm text-muted-foreground">{client.company} {client.industry && `· ${client.industry}`}</p>}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold text-foreground">{client.name}</h1>
+                {client.industry && <p className="text-sm text-muted-foreground">{client.industry}{client.size ? ` · ${client.size} employees` : ""}</p>}
+              </div>
+              <Button variant="outline" size="sm" className="gap-1.5 shrink-0"
+                onClick={() => openAI(`Tell me about ${client.name}'s behavior and preferences.`)}>
+                <Sparkles className="w-3.5 h-3.5 text-primary" /> Ask AI
+              </Button>
+            </div>
+
+            {/* Status + tier badges */}
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {(() => { const s = STATUS_CONFIG[client.status ?? "active"]; return (
+                <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${s.color}`}>{s.label}</span>
+              ); })()}
+              {client.tier && (
+                <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${TIER_COLORS[client.tier] ?? ""}`}>
+                  {client.tier.charAt(0).toUpperCase() + client.tier.slice(1)}
+                </span>
+              )}
+            </div>
+
             <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
               {client.email && <span>{client.email}</span>}
               {client.phone && <span>{client.phone}</span>}
+              {client.website && (
+                <a href={client.website} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-0.5 hover:text-primary">
+                  <Globe className="w-3 h-3" />{client.website.replace(/^https?:\/\//, "")}
+                </a>
+              )}
             </div>
+
             {client.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-3">
+              <div className="flex flex-wrap gap-1 mt-2">
                 {client.tags.map((tag) => <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>)}
               </div>
             )}
-            {client.summary && <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{client.summary}</p>}
+            {client.summary && <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{client.summary}</p>}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 shrink-0"
-            onClick={() => {
-              const msg = `Tell me about ${client.name}'s behavior and preferences.`;
-              window.open(`/ask-ai?q=${encodeURIComponent(msg)}`, "_blank");
-            }}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-primary" /> Ask AI
-          </Button>
         </div>
 
-        {/* Stats bar */}
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-5 pt-5 border-t border-border">
-          {(Object.keys(TYPE_CONFIG) as ObservationType[]).map((t) => {
-            const cfg = TYPE_CONFIG[t];
-            const count = typeCounts[t] ?? 0;
-            return (
-              <div key={t} className={`text-center rounded-lg p-2 cursor-pointer transition-colors ${filterType === t ? cfg.color : "bg-secondary/50 hover:bg-secondary"}`}
-                onClick={() => setFilterType(filterType === t ? "all" : t)}>
-                <div className="text-lg font-bold">{count}</div>
-                <div className="text-xs text-muted-foreground">{cfg.label}</div>
+        {/* Health score + obs stats */}
+        <div className="mt-5 pt-5 border-t border-border space-y-3">
+          <div className="flex items-center gap-3">
+            <Heart className="w-4 h-4 text-rose-400 shrink-0" />
+            <div className="flex-1">
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="text-muted-foreground">Relationship health (last 30 days)</span>
+                <span className="font-semibold">{healthScore}/100</span>
               </div>
-            );
-          })}
+              <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${healthScore >= 70 ? "bg-emerald-500" : healthScore >= 40 ? "bg-amber-400" : "bg-red-400"}`}
+                  style={{ width: `${healthScore}%` }}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            {(Object.keys(TYPE_CONFIG) as ObservationType[]).map((t) => {
+              const cfg = TYPE_CONFIG[t];
+              const count = typeCounts[t] ?? 0;
+              return (
+                <div key={t}
+                  className={`text-center rounded-lg p-2 cursor-pointer transition-colors ${filterType === t ? cfg.color : "bg-secondary/50 hover:bg-secondary"}`}
+                  onClick={() => { setFilterType(filterType === t ? "all" : t); setActiveTab("observations"); }}>
+                  <div className="text-lg font-bold">{count}</div>
+                  <div className="text-xs text-muted-foreground">{cfg.label}</div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </Card>
 
-      {/* Add observation */}
-      <AddObservationForm
-        clientId={id}
-        onAdded={(obs) => {
-          setObservations((prev) => [obs, ...prev]);
-          setTypeCounts((tc) => ({ ...tc, [obs.type]: (tc[obs.type] ?? 0) + 1 }));
-        }}
-      />
-
-      {/* Filter bar */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm text-muted-foreground">{filtered.length} observation{filtered.length !== 1 ? "s" : ""}</span>
-        {filterType !== "all" && (
-          <button onClick={() => setFilterType("all")} className="text-xs text-primary underline underline-offset-2">
-            Clear filter
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-border">
+        {(["observations", "contacts"] as const).map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px ${
+              activeTab === tab ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}>
+            {tab} {tab === "contacts" && contacts.length > 0 && `(${contacts.length})`}
           </button>
-        )}
+        ))}
       </div>
 
-      {/* Observations feed */}
-      {filtered.length === 0 ? (
-        <Card className="p-10 text-center border-dashed">
-          <p className="text-sm text-muted-foreground">No observations yet. Add one above.</p>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((obs) => (
-            <ObservationCard
-              key={obs._id}
-              obs={obs}
-              clientId={id}
-              onUpdated={(updated) => setObservations((prev) => prev.map((o) => o._id === updated._id ? updated : o))}
-              onDeleted={(obsId) => {
-                setObservations((prev) => {
-                  const removed = prev.find((o) => o._id === obsId);
-                  if (removed) setTypeCounts((tc) => ({ ...tc, [removed.type]: Math.max(0, (tc[removed.type] ?? 1) - 1) }));
-                  return prev.filter((o) => o._id !== obsId);
-                });
-              }}
-            />
-          ))}
-        </div>
+      {activeTab === "contacts" && (
+        <ContactsPanel clientId={id} initialContacts={contacts} />
+      )}
+
+      {activeTab === "observations" && (
+        <>
+          <AddObservationForm
+            clientId={id}
+            onAdded={(obs) => {
+              setObservations((prev) => [obs, ...prev]);
+              setTypeCounts((tc) => ({ ...tc, [obs.type]: (tc[obs.type] ?? 0) + 1 }));
+            }}
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-muted-foreground">{filtered.length} observation{filtered.length !== 1 ? "s" : ""}</span>
+            {filterType !== "all" && (
+              <button onClick={() => setFilterType("all")} className="text-xs text-primary underline underline-offset-2">Clear filter</button>
+            )}
+          </div>
+          {filtered.length === 0 ? (
+            <Card className="p-10 text-center border-dashed">
+              <p className="text-sm text-muted-foreground">No observations yet. Add one above.</p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((obs) => (
+                <ObservationCard key={obs._id} obs={obs} clientId={id}
+                  onUpdated={(u) => setObservations((prev) => prev.map((o) => o._id === u._id ? u : o))}
+                  onDeleted={(obsId) => setObservations((prev) => {
+                    const removed = prev.find((o) => o._id === obsId);
+                    if (removed) setTypeCounts((tc) => ({ ...tc, [removed.type]: Math.max(0, (tc[removed.type] ?? 1) - 1) }));
+                    return prev.filter((o) => o._id !== obsId);
+                  })}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
