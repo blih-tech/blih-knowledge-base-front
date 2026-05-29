@@ -7,17 +7,22 @@ export const PERMISSIONS = [
   'structure:manage',
   'faq:manage',
   'employees:manage',
+  'departments:manage',
+  'reports:view',
   'ai:admin',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const PERMISSION_LABELS: Record<Permission, { label: string; description: string }> = {
-  'clients:view':     { label: 'View Clients',      description: 'See client list and profiles in the admin dashboard' },
-  'clients:observe':  { label: 'Add Observations',  description: 'Post and edit observations on assigned clients' },
-  'content:manage':   { label: 'Manage Content',    description: 'Create, edit, and delete documents' },
-  'structure:manage': { label: 'Manage Structure',  description: 'Create, edit, and delete categories and sections' },
-  'faq:manage':       { label: 'Manage FAQs',       description: 'Create, edit, and delete FAQ entries' },
-  'employees:manage': { label: 'Manage Employees',  description: 'Manage employee accounts and their permissions' },
-  'ai:admin':         { label: 'AI Assistant',      description: 'Access the admin AI chat assistant' },
+  'clients:view':       { label: 'View Clients',        description: 'See client list and profiles in the admin dashboard' },
+  'clients:observe':    { label: 'Add Observations',    description: 'Post and edit observations on assigned clients' },
+  'content:manage':     { label: 'Manage Content',      description: 'Create, edit, and delete documents' },
+  'structure:manage':   { label: 'Manage Structure',    description: 'Create, edit, and delete categories and sections' },
+  'faq:manage':         { label: 'Manage FAQs',         description: 'Create, edit, and delete FAQ entries' },
+  'employees:manage':   { label: 'Manage Employees',    description: 'Manage employee accounts and their permissions' },
+  'departments:manage': { label: 'Manage Departments',  description: 'Create, edit, and delete departments' },
+  'reports:view':       { label: 'View Reports',        description: 'Access the reports and analytics dashboard' },
+  'ai:admin':           { label: 'AI Assistant',        description: 'Access the admin AI chat assistant' },
 };
+

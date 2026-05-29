@@ -16,7 +16,7 @@ export interface Employee {
   role: "user" | "admin";
   isSuperAdmin: boolean;
   permissions: string[];
-  department: string;
+  department: { _id: string; name: string } | null;
   position: string;
   isActive: boolean;
   assignedClients: AssignedClient[];

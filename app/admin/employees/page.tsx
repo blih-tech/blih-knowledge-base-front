@@ -7,6 +7,7 @@ import {
   type Employee,
 } from "@/lib/api/employees.api";
 import { listClients, type Client } from "@/lib/api/clients.api";
+import { listDepartments, type Department } from "@/lib/api/departments.api";
 import { PERMISSIONS, PERMISSION_LABELS } from "@/lib/permissions";
 import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
@@ -40,9 +41,10 @@ function Avatar({ name }: { name: string }) {
 // ─── Create Employee Modal ────────────────────────────────────────────────────
 
 function CreateEmployeeModal({
-  allClients, onClose, onCreate,
+  allClients, allDepartments, onClose, onCreate,
 }: {
   allClients: Client[];
+  allDepartments: Department[];
   onClose: () => void;
   onCreate: (e: Employee) => void;
 }) {
@@ -94,7 +96,19 @@ function CreateEmployeeModal({
             <div className="col-span-2">{field("name", "Full Name", "e.g. Amanuel Tadesse", "text", true)}</div>
             <div className="col-span-2">{field("email", "Work Email", "amanuel@company.com", "email", true)}</div>
             <div className="col-span-2">{field("password", "Temporary Password", "Min 8 characters", "password", true)}</div>
-            <div>{field("department", "Department", "e.g. Sales, Tech")}</div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Department</label>
+              <select
+                value={form.department}
+                onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">No department</option>
+                {allDepartments.filter((d) => d.isActive).map((d) => (
+                  <option key={d._id} value={d._id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
             <div>{field("position", "Position", "e.g. Account Manager")}</div>
           </div>
 
@@ -233,9 +247,10 @@ function AssignClientsModal({
 // ─── Edit Employee Modal ──────────────────────────────────────────────────────
 
 function EditEmployeeModal({
-  employee, onClose, onSaved,
+  employee, allDepartments, onClose, onSaved,
 }: {
   employee: Employee;
+  allDepartments: Department[];
   onClose: () => void;
   onSaved: (e: Employee) => void;
 }) {
@@ -243,7 +258,7 @@ function EditEmployeeModal({
   const [form, setForm] = useState({
     name: employee.name,
     email: employee.email,
-    department: employee.department ?? "",
+    department: employee.department?._id ?? "",
     position: employee.position ?? "",
     isActive: employee.isActive,
   });
@@ -266,7 +281,7 @@ function EditEmployeeModal({
       // Update profile fields
       let updated = await updateEmployee(employee._id, {
         name: form.name.trim(),
-        department: form.department.trim(),
+        department: form.department || null,
         position: form.position.trim(),
         isActive: form.isActive,
       });
@@ -315,7 +330,19 @@ function EditEmployeeModal({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            {field("department", "Department", "e.g. Sales, Tech")}
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Department</label>
+              <select
+                value={form.department}
+                onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">No department</option>
+                {allDepartments.filter((d) => d.isActive).map((d) => (
+                  <option key={d._id} value={d._id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
             {field("position", "Position", "e.g. Account Manager")}
           </div>
 
@@ -465,11 +492,12 @@ function ResetPasswordModal({
 // ─── Employee Card ────────────────────────────────────────────────────────────
 
 function EmployeeCard({
-  employee, allClients,
+  employee, allClients, allDepartments,
   onUpdated, onDeactivated,
 }: {
   employee: Employee;
   allClients: Client[];
+  allDepartments: Department[];
   onUpdated: (e: Employee) => void;
   onDeactivated: (id: string) => void;
 }) {
@@ -535,10 +563,10 @@ function EmployeeCard({
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                   <Mail className="w-3 h-3" />{employee.email}
                 </p>
-                {(employee.department || employee.position) && (
+                {(employee.department?.name || employee.position) && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Briefcase className="w-3 h-3" />
-                    {[employee.position, employee.department].filter(Boolean).join(" · ")}
+                    {[employee.position, employee.department?.name].filter(Boolean).join(" · ")}
                   </p>
                 )}
               </div>
@@ -618,6 +646,7 @@ function EmployeeCard({
       {showEdit && (
         <EditEmployeeModal
           employee={employee}
+          allDepartments={allDepartments}
           onClose={() => setShowEdit(false)}
           onSaved={(updated) => { onUpdated(updated); setShowEdit(false); }}
         />
@@ -645,6 +674,7 @@ function EmployeeCard({
 export default function AdminEmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [allClients, setAllClients] = useState<Client[]>([]);
+  const [allDepartments, setAllDepartments] = useState<Department[]>([]);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -654,12 +684,14 @@ export default function AdminEmployeesPage() {
   const load = useCallback(async (q?: string) => {
     setIsLoading(true); setError(null);
     try {
-      const [emps, clients] = await Promise.all([
+      const [emps, clients, depts] = await Promise.all([
         listEmployees({ search: q }),
         listClients({ limit: 100 }),
+        listDepartments({ isActive: true }),
       ]);
       setEmployees(emps);
       setAllClients(clients.clients as unknown as Client[]);
+      setAllDepartments(depts);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load employees");
     } finally { setIsLoading(false); }
@@ -728,6 +760,7 @@ export default function AdminEmployeesPage() {
               key={emp._id}
               employee={emp}
               allClients={allClients}
+              allDepartments={allDepartments}
               onUpdated={(updated) => setEmployees((prev) => prev.map((e) => e._id === updated._id ? updated : e))}
               onDeactivated={(id) => setEmployees((prev) => prev.map((e) => e._id === id ? { ...e, isActive: false } : e))}
             />
@@ -738,6 +771,7 @@ export default function AdminEmployeesPage() {
       {showCreate && (
         <CreateEmployeeModal
           allClients={allClients}
+          allDepartments={allDepartments}
           onClose={() => setShowCreate(false)}
           onCreate={(emp) => {
             setEmployees((prev) => [emp, ...prev]);

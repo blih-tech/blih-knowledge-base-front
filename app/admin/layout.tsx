@@ -38,6 +38,8 @@ import {
   X,
   MessageSquare,
   UserCheck,
+  Building2,
+  BarChart3,
 } from "lucide-react";
 
 // ─── Nav config (permission-gated) ───────────────────────────────────────────
@@ -48,12 +50,14 @@ const navItems: {
   icon: React.ElementType;
   permission?: Permission; // undefined = always visible
 }[] = [
-  { href: "/admin/dashboard",  label: "Dashboard",        icon: LayoutDashboard },
-  { href: "/admin/structure",  label: "Manage Structure", icon: Folder,          permission: "structure:manage" },
-  { href: "/admin/content",    label: "Manage Content",   icon: FileText,        permission: "content:manage" },
-  { href: "/admin/clients",    label: "Clients",          icon: Users,           permission: "clients:view" },
-  { href: "/admin/employees",  label: "Employees",        icon: UserCheck,       permission: "employees:manage" },
-  { href: "/admin/faq",        label: "FAQs",             icon: HelpCircle,      permission: "faq:manage" },
+  { href: "/admin/dashboard",    label: "Dashboard",          icon: LayoutDashboard },
+  { href: "/admin/structure",    label: "Manage Structure",   icon: Folder,          permission: "structure:manage" },
+  { href: "/admin/content",      label: "Manage Content",     icon: FileText,        permission: "content:manage" },
+  { href: "/admin/clients",      label: "Clients",            icon: Users,           permission: "clients:view" },
+  { href: "/admin/employees",    label: "Employees",          icon: UserCheck,       permission: "employees:manage" },
+  { href: "/admin/departments",  label: "Departments",        icon: Building2,       permission: "departments:manage" },
+  { href: "/admin/faq",          label: "FAQs",               icon: HelpCircle,      permission: "faq:manage" },
+  { href: "/admin/reports",      label: "Reports",            icon: BarChart3,       permission: "reports:view" },
 ];
 
 // ─── Admin Sidebar ────────────────────────────────────────────────────────────
