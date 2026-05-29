@@ -1,204 +1,145 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useAuth } from "@/hooks/use-auth";
-import { AuthProvider } from "@/lib/auth/session-provider";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Lock, Mail, Loader2, AlertCircle } from "lucide-react";
-import Link from "next/link";
-import { Brain } from "lucide-react";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2, Eye, EyeOff, LogIn, AlertCircle } from "lucide-react";
 
-const loginSchema = z.object({
-  email: z
-    .string()
-    .min(1, "Email is required")
-    .email("Enter a valid email address"),
-  password: z
-    .string()
-    .min(1, "Password is required")
-    .min(8, "Password must be at least 8 characters"),
-});
-
-type LoginValues = z.infer<typeof loginSchema>;
-
-function LoginForm() {
-  const { isAuthenticated, isAdmin, isLoading } = useAuth();
+export default function LoginPage() {
+  const { data: session, status } = useSession();
   const router = useRouter();
-  const [serverError, setServerError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from") ?? "/";
 
-  const form = useForm<LoginValues>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: { email: "", password: "" },
-  });
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Redirect if already authenticated
+  // Redirect after session is established
   useEffect(() => {
-    if (!isLoading && isAuthenticated && isAdmin) {
-      router.replace("/admin/dashboard");
-    }
-  }, [isLoading, isAuthenticated, isAdmin, router]);
-
-  const onSubmit = async (values: LoginValues) => {
-    setServerError(null);
-    setSubmitting(true);
-
-    try {
-      const result = await signIn("credentials", {
-        email: values.email,
-        password: values.password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        if (result.error === "AdminAccessDenied") {
-          setServerError("Your account does not have admin access.");
-        } else if (result.error === "CredentialsSignin") {
-          setServerError("Invalid email or password.");
-        } else {
-          setServerError(result.error);
-        }
-        return;
+    if (status === "authenticated" && session) {
+      if (session.user?.role === "admin") {
+        router.replace("/admin/dashboard");
+      } else {
+        // Employee goes to the knowledge base (or return URL)
+        router.replace(from === "/auth/login" ? "/" : from);
       }
-
-      router.replace("/admin/dashboard");
-      router.refresh();
-    } catch {
-      setServerError("An unexpected error occurred. Please try again.");
-    } finally {
-      setSubmitting(false);
     }
-  };
+  }, [status, session, router, from]);
 
-  if (isLoading) {
+  if (status === "loading" || (status === "authenticated")) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.email.trim() || !form.password.trim()) return;
+    setIsLoading(true);
+    setError(null);
+
+    const result = await signIn("credentials", {
+      email: form.email.trim(),
+      password: form.password,
+      redirect: false,
+    });
+
+    setIsLoading(false);
+
+    if (result?.error) {
+      setError(
+        result.error === "AdminAccessDenied"
+          ? "You don't have permission to access this system."
+          : result.error === "CredentialsSignin"
+          ? "Invalid email or password."
+          : result.error
+      );
+    }
+    // On success, useEffect above handles the redirect
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/50 to-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="mb-8 text-center">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6 text-foreground hover:text-primary transition-colors">
-            <Brain className="h-6 w-6 text-primary" />
-            <span className="text-xl font-semibold tracking-tight">Blih Brain</span>
-          </Link>
-          <div className="flex items-center justify-center mb-4">
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg">
-              <Lock className="w-6 h-6 text-primary-foreground" />
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-100 px-4">
+      <div className="w-full max-w-sm">
+        {/* Logo / Brand */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-primary/10 mb-4">
+            <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-1">Admin Login</h1>
-          <p className="text-muted-foreground text-sm">Blih Brain Knowledge Base Management</p>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Knowledge Base</h1>
+          <p className="text-sm text-muted-foreground mt-1">Sign in to your account</p>
         </div>
 
         {/* Card */}
-        <div className="bg-card rounded-xl shadow-lg border border-border p-8">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5" noValidate>
-              {/* Email */}
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          {...field}
-                          id="email"
-                          type="email"
-                          placeholder="admin@blih.com"
-                          disabled={submitting}
-                          autoFocus
-                          autoComplete="email"
-                          className="pl-9"
-                          onChange={(e) => {
-                            field.onChange(e);
-                            setServerError(null);
-                          }}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+        <div className="bg-white rounded-2xl border border-border shadow-sm p-8">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                placeholder="you@company.com"
+                autoComplete="email"
+                required
+                className="w-full h-10 rounded-lg border border-input bg-background px-3 text-sm shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
               />
+            </div>
 
-              {/* Password */}
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                        <Input
-                          {...field}
-                          id="password"
-                          type="password"
-                          placeholder="••••••••"
-                          disabled={submitting}
-                          autoComplete="current-password"
-                          className="pl-9"
-                          onChange={(e) => {
-                            field.onChange(e);
-                            setServerError(null);
-                          }}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Password */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1.5">Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  required
+                  className="w-full h-10 rounded-lg border border-input bg-background px-3 pr-10 text-sm shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
 
-              {/* Server error banner */}
-              {serverError && (
-                <div className="flex items-start gap-2.5 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
-                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <span>{serverError}</span>
-                </div>
-              )}
+            {/* Error */}
+            {error && (
+              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
-              <Button type="submit" disabled={submitting} className="w-full gap-2">
-                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                {submitting ? "Signing in…" : "Sign In"}
-              </Button>
-            </form>
-          </Form>
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={!form.email.trim() || !form.password.trim() || isLoading}
+              className="w-full h-10 rounded-lg bg-primary text-primary-foreground font-medium text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+            >
+              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
+              Sign In
+            </button>
+          </form>
         </div>
+
+        <p className="text-center text-xs text-muted-foreground mt-6">
+          Contact your administrator if you need access.
+        </p>
       </div>
     </div>
-  );
-}
-
-export default function AuthLoginPage() {
-  return (
-    <AuthProvider>
-      <LoginForm />
-    </AuthProvider>
   );
 }

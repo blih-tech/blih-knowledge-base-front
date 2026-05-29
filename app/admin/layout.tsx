@@ -6,7 +6,6 @@ import { useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { useAuth } from "@/hooks/use-auth";
 import { AdminProvider } from "@/lib/admin-context";
-import { AuthProvider } from "@/lib/auth/session-provider";
 import { AdminAIProvider, useAdminAI } from "@/lib/admin-ai-context";
 import { AdminChatInterface } from "@/components/AdminChatInterface";
 
@@ -37,6 +36,7 @@ import {
   ShieldCheck,
   X,
   MessageSquare,
+  UserCheck,
 } from "lucide-react";
 
 // ─── Nav config ───────────────────────────────────────────────────────────────
@@ -46,6 +46,7 @@ const navItems = [
   { href: "/admin/structure", label: "Manage Structure", icon: Folder },
   { href: "/admin/content", label: "Manage Content", icon: FileText },
   { href: "/admin/clients", label: "Clients", icon: Users },
+  { href: "/admin/employees", label: "Employees", icon: UserCheck },
   { href: "/admin/faq", label: "FAQs", icon: HelpCircle },
 ];
 
@@ -198,10 +199,14 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (isLoading) return;
+    if (!isAuthenticated) {
       router.replace("/auth/login");
+    } else if (!isAdmin) {
+      // Logged in but not admin → send to knowledge base
+      router.replace("/");
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, isAdmin, router]);
 
   if (isLoading) {
     return (
@@ -212,6 +217,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated || !isAdmin) return null;
+
 
   return (
     <SidebarProvider>
@@ -237,12 +243,10 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      <AdminAIProvider>
-        <AdminShell>
-          <AdminProvider>{children}</AdminProvider>
-        </AdminShell>
-      </AdminAIProvider>
-    </AuthProvider>
+    <AdminAIProvider>
+      <AdminShell>
+        <AdminProvider>{children}</AdminProvider>
+      </AdminShell>
+    </AdminAIProvider>
   );
 }

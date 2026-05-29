@@ -53,7 +53,7 @@ async function refreshAccessToken(refreshToken: string) {
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
-  pages: { signIn: "/admin" },
+  pages: { signIn: "/auth/login" },
   providers: [
     Credentials({
       name: "Credentials",
@@ -67,16 +67,9 @@ export const authOptions: NextAuthOptions = {
         try {
           const res = await backendAxios.post<BackendLoginResponse>(
             "/auth/login",
-            {
-              email: credentials.email,
-              password: credentials.password,
-            },
+            { email: credentials.email, password: credentials.password },
           );
           const { user, tokens } = res.data.data;
-
-          if (user.role !== "admin") {
-            throw new Error("AdminAccessDenied");
-          }
 
           const authUser: User = {
             id: user.id,
@@ -89,11 +82,7 @@ export const authOptions: NextAuthOptions = {
           };
           return authUser;
         } catch (err) {
-          if (err instanceof Error && err.message === "AdminAccessDenied") {
-            throw err;
-          }
           if (err instanceof AxiosError) {
-            // Throw backend message so NextAuth passes it through result.error
             const message =
               err.response?.data?.message ??
               err.response?.data?.error ??

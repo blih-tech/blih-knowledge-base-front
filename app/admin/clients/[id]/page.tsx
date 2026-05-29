@@ -84,12 +84,21 @@ function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg"
 
 // ─── Add observation form ─────────────────────────────────────────────────────
 
-function AddObservationForm({ clientId, onAdded }: { clientId: string; onAdded: (o: Observation) => void }) {
+function AddObservationForm({
+  clientId,
+  contacts,
+  onAdded,
+}: {
+  clientId: string;
+  contacts: import("@/lib/api/clients.api").Contact[];
+  onAdded: (o: Observation) => void;
+}) {
   const [type, setType] = useState<ObservationType>("general");
   const [content, setContent] = useState("");
   const [sentiment, setSentiment] = useState<SentimentType>("neutral");
   const [isPrivate, setIsPrivate] = useState(false);
   const [tags, setTags] = useState("");
+  const [contactId, setContactId] = useState<string>(""); // "" = company-level
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -104,11 +113,13 @@ function AddObservationForm({ clientId, onAdded }: { clientId: string; onAdded: 
         content: content.trim(),
         sentiment,
         isPrivate,
+        contactId: contactId || null,
         tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
       });
       onAdded(obs);
       setContent("");
       setTags("");
+      setContactId("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add observation");
     } finally {
@@ -122,6 +133,23 @@ function AddObservationForm({ clientId, onAdded }: { clientId: string; onAdded: 
         <Plus className="w-4 h-4 text-primary" /> Add Observation
       </h3>
       <form onSubmit={handleSubmit} className="space-y-3">
+        {/* About whom? */}
+        <div>
+          <label className="text-xs font-medium text-muted-foreground block mb-1">About whom?</label>
+          <select
+            value={contactId}
+            onChange={(e) => setContactId(e.target.value)}
+            className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">🏢 The company (general)</option>
+            {contacts.map((c) => (
+              <option key={c._id} value={c._id}>
+                👤 {c.name} — {c.role}{c.isPrimary ? " ★" : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Type selector */}
         <div className="flex flex-wrap gap-1.5">
           {(Object.keys(TYPE_CONFIG) as ObservationType[]).map((t) => {
@@ -211,17 +239,23 @@ function AddObservationForm({ clientId, onAdded }: { clientId: string; onAdded: 
 function ObservationCard({
   obs,
   clientId,
+  contacts,
   onUpdated,
   onDeleted,
 }: {
   obs: Observation;
   clientId: string;
+  contacts: import("@/lib/api/clients.api").Contact[];
   onUpdated: (o: Observation) => void;
   onDeleted: (id: string) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(obs.content);
   const [isBusy, setIsBusy] = useState(false);
+
+  const contactName = obs.contactId
+    ? contacts.find((c) => c._id === obs.contactId)?.name ?? "a contact"
+    : null;
 
   const handleUpdate = async () => {
     setIsBusy(true);
@@ -259,6 +293,15 @@ function ObservationCard({
             }`}>
               {obs.sentiment}
             </span>
+            {contactName ? (
+              <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-1.5 py-0.5">
+                👤 {contactName}
+              </span>
+            ) : (
+              <span className="text-xs bg-gray-50 text-gray-500 border border-gray-200 rounded-full px-1.5 py-0.5">
+                🏢 Company
+              </span>
+            )}
             {obs.isPrivate && (
               <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                 <Lock className="w-3 h-3" /> Private
@@ -327,6 +370,7 @@ export default function ClientProfilePage({ params }: { params: Promise<{ id: st
   const [contacts, setContacts] = useState<import("@/lib/api/clients.api").Contact[]>([]);
   const [healthScore, setHealthScore] = useState(50);
   const [filterType, setFilterType] = useState<ObservationType | "all">("all");
+  const [contactFilter, setContactFilter] = useState<string | null>(null); // null = all, "" = company-level, contactId = specific
   const [activeTab, setActiveTab] = useState<"observations" | "contacts">("observations");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -348,7 +392,12 @@ export default function ClientProfilePage({ params }: { params: Promise<{ id: st
     load();
   }, [id]);
 
-  const filtered = filterType === "all" ? observations : observations.filter((o) => o.type === filterType);
+  const filtered = (() => {
+    let result = filterType === "all" ? observations : observations.filter((o) => o.type === filterType);
+    if (contactFilter === "") result = result.filter((o) => !o.contactId);
+    else if (contactFilter !== null) result = result.filter((o) => o.contactId === contactFilter);
+    return result;
+  })();
   const totalObs = observations.length;
 
   if (isLoading) {
@@ -482,11 +531,43 @@ export default function ClientProfilePage({ params }: { params: Promise<{ id: st
         <>
           <AddObservationForm
             clientId={id}
+            contacts={contacts}
             onAdded={(obs) => {
               setObservations((prev) => [obs, ...prev]);
               setTypeCounts((tc) => ({ ...tc, [obs.type]: (tc[obs.type] ?? 0) + 1 }));
             }}
           />
+
+          {/* Contact filter chips */}
+          {contacts.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs text-muted-foreground shrink-0">Filter by:</span>
+              <button
+                onClick={() => setContactFilter(null)}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  contactFilter === null ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/40"
+                }`}
+              >All</button>
+              <button
+                onClick={() => setContactFilter("")}
+                className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                  contactFilter === "" ? "bg-gray-700 text-white border-gray-700" : "border-border text-muted-foreground hover:border-primary/40"
+                }`}
+              >🏢 Company</button>
+              {contacts.map((c) => (
+                <button
+                  key={c._id}
+                  onClick={() => setContactFilter(contactFilter === c._id ? null : c._id)}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                    contactFilter === c._id ? "bg-blue-600 text-white border-blue-600" : "border-border text-muted-foreground hover:border-primary/40"
+                  }`}
+                >
+                  👤 {c.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-muted-foreground">{filtered.length} observation{filtered.length !== 1 ? "s" : ""}</span>
             {filterType !== "all" && (
@@ -500,7 +581,7 @@ export default function ClientProfilePage({ params }: { params: Promise<{ id: st
           ) : (
             <div className="space-y-3">
               {filtered.map((obs) => (
-                <ObservationCard key={obs._id} obs={obs} clientId={id}
+                <ObservationCard key={obs._id} obs={obs} clientId={id} contacts={contacts}
                   onUpdated={(u) => setObservations((prev) => prev.map((o) => o._id === u._id ? u : o))}
                   onDeleted={(obsId) => setObservations((prev) => {
                     const removed = prev.find((o) => o._id === obsId);
