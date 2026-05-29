@@ -104,14 +104,14 @@ function CreateEmployeeModal({
               Permissions ({selectedPermissions.length} granted)
             </label>
             <div className="border border-border rounded-lg divide-y divide-border">
-              {Object.entries(PERMISSION_LABELS).map(([perm, label]) => (
+              {Object.entries(PERMISSION_LABELS).map(([perm, meta]) => (
                 <label
                   key={perm}
                   className="flex items-center justify-between px-3 py-2.5 hover:bg-secondary/50 cursor-pointer"
                 >
                   <div>
-                    <p className="text-sm font-medium">{label}</p>
-                    <p className="text-xs text-muted-foreground">{perm}</p>
+                    <p className="text-sm font-medium">{meta.label}</p>
+                    <p className="text-xs text-muted-foreground">{meta.description}</p>
                   </div>
                   <div
                     className={`relative w-9 h-5 rounded-full transition-colors ${
