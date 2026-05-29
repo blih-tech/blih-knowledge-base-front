@@ -37,6 +37,7 @@ export const createEmployee = (data: {
   department?: string;
   position?: string;
   assignedClients?: string[];
+  permissions?: string[];
 }): Promise<Employee> =>
   apiAxios.post("/users", data).then((r) => r.data.data);
 

@@ -50,18 +50,26 @@ function CreateEmployeeModal({
     name: "", email: "", password: "", department: "", position: "",
   });
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const toggleClient = (id: string) =>
     setSelectedClients((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
 
+  const togglePermission = (p: string) =>
+    setSelectedPermissions((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.email.trim() || !form.password.trim()) return;
     setIsSaving(true); setError(null);
     try {
-      onCreate(await createEmployee({ ...form, assignedClients: selectedClients }));
+      onCreate(await createEmployee({
+        ...form,
+        assignedClients: selectedClients,
+        permissions: selectedPermissions,
+      }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create employee");
     } finally { setIsSaving(false); }
@@ -88,6 +96,38 @@ function CreateEmployeeModal({
             <div className="col-span-2">{field("password", "Temporary Password", "Min 8 characters", "password", true)}</div>
             <div>{field("department", "Department", "e.g. Sales, Tech")}</div>
             <div>{field("position", "Position", "e.g. Account Manager")}</div>
+          </div>
+
+          {/* Permissions */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-2">
+              Permissions ({selectedPermissions.length} granted)
+            </label>
+            <div className="border border-border rounded-lg divide-y divide-border">
+              {Object.entries(PERMISSION_LABELS).map(([perm, label]) => (
+                <label
+                  key={perm}
+                  className="flex items-center justify-between px-3 py-2.5 hover:bg-secondary/50 cursor-pointer"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{label}</p>
+                    <p className="text-xs text-muted-foreground">{perm}</p>
+                  </div>
+                  <div
+                    className={`relative w-9 h-5 rounded-full transition-colors ${
+                      selectedPermissions.includes(perm) ? "bg-violet-600" : "bg-gray-200"
+                    }`}
+                    onClick={() => togglePermission(perm)}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                        selectedPermissions.includes(perm) ? "translate-x-4" : ""
+                      }`}
+                    />
+                  </div>
+                </label>
+              ))}
+            </div>
           </div>
 
           {/* Assign clients */}
