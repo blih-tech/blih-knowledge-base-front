@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { AdminProvider } from "@/lib/admin-context";
 import { AdminAIProvider, useAdminAI } from "@/lib/admin-ai-context";
 import { AdminChatInterface } from "@/components/AdminChatInterface";
+import type { Permission } from "@/lib/permissions";
 
 import {
   Sidebar,
@@ -39,15 +40,20 @@ import {
   UserCheck,
 } from "lucide-react";
 
-// ─── Nav config ───────────────────────────────────────────────────────────────
+// ─── Nav config (permission-gated) ───────────────────────────────────────────
 
-const navItems = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/structure", label: "Manage Structure", icon: Folder },
-  { href: "/admin/content", label: "Manage Content", icon: FileText },
-  { href: "/admin/clients", label: "Clients", icon: Users },
-  { href: "/admin/employees", label: "Employees", icon: UserCheck },
-  { href: "/admin/faq", label: "FAQs", icon: HelpCircle },
+const navItems: {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  permission?: Permission; // undefined = always visible
+}[] = [
+  { href: "/admin/dashboard",  label: "Dashboard",        icon: LayoutDashboard },
+  { href: "/admin/structure",  label: "Manage Structure", icon: Folder,          permission: "structure:manage" },
+  { href: "/admin/content",    label: "Manage Content",   icon: FileText,        permission: "content:manage" },
+  { href: "/admin/clients",    label: "Clients",          icon: Users,           permission: "clients:view" },
+  { href: "/admin/employees",  label: "Employees",        icon: UserCheck,       permission: "employees:manage" },
+  { href: "/admin/faq",        label: "FAQs",             icon: HelpCircle,      permission: "faq:manage" },
 ];
 
 // ─── Admin Sidebar ────────────────────────────────────────────────────────────
@@ -55,6 +61,11 @@ const navItems = [
 function AdminSidebar() {
   const pathname = usePathname();
   const { open } = useAdminAI();
+  const { hasPermission } = useAuth();
+
+  const visibleItems = navItems.filter(
+    (item) => !item.permission || hasPermission(item.permission),
+  );
 
   return (
     <Sidebar collapsible="icon">
@@ -80,7 +91,7 @@ function AdminSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarMenu>
-            {navItems.map(({ href, label, icon: Icon }) => {
+            {visibleItems.map(({ href, label, icon: Icon }) => {
               const isActive = pathname === href || pathname.startsWith(href + "/");
               return (
                 <SidebarMenuItem key={href}>
@@ -94,13 +105,15 @@ function AdminSidebar() {
               );
             })}
 
-            {/* AI Assistant — opens modal */}
-            <SidebarMenuItem>
-              <SidebarMenuButton tooltip="AI Assistant" onClick={() => open()}>
-                <ShieldCheck className="size-4 text-violet-600" />
-                <span className="text-violet-700 font-medium">AI Assistant</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {/* AI Assistant — only for users with ai:admin permission */}
+            {hasPermission('ai:admin') && (
+              <SidebarMenuItem>
+                <SidebarMenuButton tooltip="AI Assistant" onClick={() => open()}>
+                  <ShieldCheck className="size-4 text-violet-600" />
+                  <span className="text-violet-700 font-medium">AI Assistant</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>

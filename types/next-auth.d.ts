@@ -5,6 +5,8 @@ declare module "next-auth" {
     user: {
       id: string;
       role: string;
+      isSuperAdmin: boolean;
+      permissions: string[];
     } & DefaultSession["user"];
     accessToken?: string;
     error?: "RefreshAccessTokenError";
@@ -15,6 +17,8 @@ declare module "next-auth" {
     name?: string | null;
     email?: string | null;
     role: string;
+    isSuperAdmin: boolean;
+    permissions: string[];
     accessToken: string;
     refreshToken: string;
     accessTokenExpiresAt: number;
@@ -27,6 +31,8 @@ declare module "next-auth/jwt" {
     name: string;
     email: string;
     role: string;
+    isSuperAdmin: boolean;
+    permissions: string[];
     accessToken: string;
     refreshToken: string;
     accessTokenExpiresAt: number;

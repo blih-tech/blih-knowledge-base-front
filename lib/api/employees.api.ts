@@ -14,6 +14,8 @@ export interface Employee {
   name: string;
   email: string;
   role: "user" | "admin";
+  isSuperAdmin: boolean;
+  permissions: string[];
   department: string;
   position: string;
   isActive: boolean;
@@ -49,3 +51,12 @@ export const assignClients = (id: string, clientIds: string[]): Promise<Employee
 
 export const deactivateEmployee = (id: string): Promise<void> =>
   apiAxios.delete(`/users/${id}`).then(() => undefined);
+
+export const resetPassword = (id: string, newPassword: string): Promise<void> =>
+  apiAxios.put(`/users/${id}/reset-password`, { newPassword }).then(() => undefined);
+
+export const setEmployeeRole = (id: string, role: "user" | "admin"): Promise<Employee> =>
+  apiAxios.put(`/users/${id}/role`, { role }).then((r) => r.data.data);
+
+export const updatePermissions = (id: string, permissions: string[]): Promise<Employee> =>
+  apiAxios.put(`/users/${id}/permissions`, { permissions }).then((r) => r.data.data);

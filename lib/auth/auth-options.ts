@@ -6,7 +6,14 @@ import { backendAxios } from "@/lib/api/axios";
 
 interface BackendLoginResponse {
   data: {
-    user: { id: string; name: string; email: string; role: string };
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      isSuperAdmin: boolean;
+      permissions: string[];
+    };
     tokens: {
       accessToken: string;
       refreshToken: string;
@@ -76,6 +83,8 @@ export const authOptions: NextAuthOptions = {
             name: user.name,
             email: user.email,
             role: user.role,
+            isSuperAdmin: user.isSuperAdmin,
+            permissions: user.permissions ?? [],
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken,
             accessTokenExpiresAt: resolveExpiresAt(tokens),
@@ -103,6 +112,8 @@ export const authOptions: NextAuthOptions = {
         t.name = user.name ?? "";
         t.email = user.email ?? "";
         t.role = user.role;
+        t.isSuperAdmin = user.isSuperAdmin;
+        t.permissions = user.permissions ?? [];
         t.accessToken = user.accessToken;
         t.refreshToken = user.refreshToken;
         t.accessTokenExpiresAt = user.accessTokenExpiresAt;
@@ -135,6 +146,8 @@ export const authOptions: NextAuthOptions = {
         session.user.name = t.name;
         session.user.email = t.email;
         session.user.role = t.role;
+        session.user.isSuperAdmin = t.isSuperAdmin;
+        session.user.permissions = t.permissions ?? [];
       }
       session.accessToken = t.accessToken;
       session.error = t.error;
