@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Eye, EyeOff, LogIn, AlertCircle } from "lucide-react";
 
-export default function LoginPage() {
+// ─── Inner component uses useSearchParams — must be inside <Suspense> ─────────
+
+function LoginForm() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -16,19 +18,17 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Redirect after session is established
   useEffect(() => {
     if (status === "authenticated" && session) {
       if (session.user?.role === "admin") {
         router.replace("/admin/dashboard");
       } else {
-        // Employee goes to the knowledge base (or return URL)
         router.replace(from === "/auth/login" ? "/" : from);
       }
     }
   }, [status, session, router, from]);
 
-  if (status === "loading" || (status === "authenticated")) {
+  if (status === "loading" || status === "authenticated") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -59,7 +59,6 @@ export default function LoginPage() {
           : result.error
       );
     }
-    // On success, useEffect above handles the redirect
   };
 
   return (
@@ -141,5 +140,21 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+// ─── Page shell — wraps inner component in Suspense ───────────────────────────
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
