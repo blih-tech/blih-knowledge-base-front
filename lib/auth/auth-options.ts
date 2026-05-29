@@ -32,6 +32,16 @@ interface BackendRefreshResponse {
   };
 }
 
+interface BackendMeResponse {
+  data: {
+    role: string;
+    isSuperAdmin: boolean;
+    permissions: string[];
+    name: string;
+    email: string;
+  };
+}
+
 function resolveExpiresAt(tokens: {
   accessTokenExpiresAt?: number;
   accessTokenExpiresIn?: number;
@@ -56,6 +66,18 @@ async function refreshAccessToken(refreshToken: string) {
     refreshToken: tokens.refreshToken,
     accessTokenExpiresAt: resolveExpiresAt(tokens),
   };
+}
+
+/** Call /auth/me with a valid access token to get fresh user data from DB. */
+async function fetchFreshUserData(accessToken: string) {
+  try {
+    const res = await backendAxios.get<BackendMeResponse>("/auth/me", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    return res.data.data;
+  } catch {
+    return null; // silently fail — stale data is better than crashing
+  }
 }
 
 export const authOptions: NextAuthOptions = {
@@ -133,6 +155,15 @@ export const authOptions: NextAuthOptions = {
         t.refreshToken = refreshed.refreshToken;
         t.accessTokenExpiresAt = refreshed.accessTokenExpiresAt;
         t.error = undefined;
+
+        // Sync fresh user data (role, permissions, isSuperAdmin) from DB
+        const fresh = await fetchFreshUserData(refreshed.accessToken);
+        if (fresh) {
+          t.role = fresh.role;
+          t.isSuperAdmin = fresh.isSuperAdmin;
+          t.permissions = fresh.permissions ?? [];
+        }
+
         return t;
       } catch {
         t.error = "RefreshAccessTokenError";
