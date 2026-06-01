@@ -40,6 +40,7 @@ import {
   UserCheck,
   Building2,
   BarChart3,
+  UserCircle,
 } from "lucide-react";
 
 // ─── Nav config (permission-gated) ───────────────────────────────────────────
@@ -212,7 +213,7 @@ function AIFloatingButton() {
 // ─── Guard + shell ────────────────────────────────────────────────────────────
 
 function AdminShell({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isAdmin, isLoading } = useAuth();
+  const { user, isAuthenticated, isAdmin, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -244,6 +245,16 @@ function AdminShell({ children }: { children: React.ReactNode }) {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="h-4 mx-2" />
           <span className="text-sm font-medium text-muted-foreground">Admin</span>
+          <div className="ml-auto">
+            <Link
+              href="/admin/profile"
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors"
+              title="My Profile"
+            >
+              <UserCircle className="w-5 h-5" />
+              <span className="hidden sm:inline font-medium">{user?.name?.split(' ')[0] ?? 'Profile'}</span>
+            </Link>
+          </div>
         </header>
         <main className="flex-1 overflow-auto p-6">
           <div className="max-w-5xl mx-auto w-full">{children}</div>

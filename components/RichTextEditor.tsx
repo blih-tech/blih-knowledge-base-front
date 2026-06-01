@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
+import { useEffect } from "react";
 
-import { useEditor, EditorContent } from '@tiptap/react';
-import { Mark, mergeAttributes, type RawCommands } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Placeholder from '@tiptap/extension-placeholder';
+import { useEditor, EditorContent } from "@tiptap/react";
+import { Mark, mergeAttributes, type RawCommands } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
 import {
   Bold,
   Italic,
@@ -19,14 +19,14 @@ import {
   Heading1,
   Heading2,
   Heading3,
-} from 'lucide-react';
+} from "lucide-react";
 
 // ─── Custom inline mark: TextSize ─────────────────────────────────────────────
 // Wraps selected text in <span data-text-size="h1|h2|h3"> so headings apply
 // only to the selected range, not the whole block.
 
 const TextSize = Mark.create({
-  name: 'textSize',
+  name: "textSize",
 
   addAttributes() {
     return {
@@ -35,11 +35,20 @@ const TextSize = Mark.create({
   },
 
   parseHTML() {
-    return [{ tag: 'span[data-text-size]', getAttrs: (el: HTMLElement) => ({ level: el.dataset.textSize }) }];
+    return [
+      {
+        tag: "span[data-text-size]",
+        getAttrs: (el: HTMLElement) => ({ level: el.dataset.textSize }),
+      },
+    ];
   },
 
   renderHTML({ HTMLAttributes }: { HTMLAttributes: Record<string, unknown> }) {
-    return ['span', mergeAttributes({ 'data-text-size': HTMLAttributes.level }), 0];
+    return [
+      "span",
+      mergeAttributes({ "data-text-size": HTMLAttributes.level }),
+      0,
+    ];
   },
 
   addCommands() {
@@ -56,16 +65,21 @@ const TextSize = Mark.create({
           (commands as any).unsetMark(this.name),
       toggleTextSize:
         (level: string) =>
-        ({ editor, commands }: { editor: ReturnType<typeof useEditor>; commands: RawCommands }) =>
+        ({
+          editor,
+          commands,
+        }: {
+          editor: ReturnType<typeof useEditor>;
+          commands: RawCommands;
+        }) =>
           editor?.isActive(this.name, { level })
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ? (commands as any).unsetMark(this.name)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            : (commands as any).setMark(this.name, { level }),
+            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (commands as any).unsetMark(this.name)
+            : // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (commands as any).setMark(this.name, { level }),
     } as Partial<RawCommands>;
   },
 });
-
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -83,7 +97,7 @@ export function RichTextEditor({
   value,
   onChange,
   onChangeJson,
-  placeholder = 'Write your content here...',
+  placeholder = "Write your content here...",
   error,
   externalContentVersion,
 }: RichTextEditorProps) {
@@ -92,7 +106,8 @@ export function RichTextEditor({
     extensions: [
       StarterKit.configure({
         heading: false, // disable block headings — using inline marks instead
-        link: {         // configure the built-in StarterKit link instead of adding a duplicate
+        link: {
+          // configure the built-in StarterKit link instead of adding a duplicate
           openOnClick: false,
           autolink: true,
         },
@@ -110,7 +125,12 @@ export function RichTextEditor({
   // When externalContentVersion bumps, force-set the editor content
   // (e.g. after a file import)
   useEffect(() => {
-    if (!editor || externalContentVersion === undefined || externalContentVersion === 0) return;
+    if (
+      !editor ||
+      externalContentVersion === undefined ||
+      externalContentVersion === 0
+    )
+      return;
     editor.commands.setContent(value, false);
     onChange(editor.getHTML());
     onChangeJson?.(editor.getJSON());
@@ -120,12 +140,20 @@ export function RichTextEditor({
   if (!editor) return null;
 
   const addLink = () => {
-    const url = prompt('Enter URL');
-    if (url) editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+    const url = prompt("Enter URL");
+    if (url)
+      editor
+        .chain()
+        .focus()
+        .extendMarkRange("link")
+        .setLink({ href: url })
+        .run();
   };
 
   return (
-    <div className={`rounded-lg border ${error ? 'border-red-500' : 'border-border'} overflow-hidden bg-white`}>
+    <div
+      className={`rounded-lg border ${error ? "border-red-500" : "border-border"} overflow-hidden  bg-white`}
+    >
       {/* ProseMirror scoped styles — no Tailwind Typography plugin required */}
       <style>{`
         .ProseMirror {
@@ -207,24 +235,30 @@ export function RichTextEditor({
         {/* Inline size marks — apply only to selected text */}
         <Btn
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onClick={() => (editor.chain().focus() as any).toggleTextSize('h1').run()}
-          active={editor.isActive('textSize', { level: 'h1' })}
+          onClick={() =>
+            (editor.chain().focus() as any).toggleTextSize("h1").run()
+          }
+          active={editor.isActive("textSize", { level: "h1" })}
           title="Large heading (selected text only)"
         >
           <Heading1 className="w-4 h-4" />
         </Btn>
         <Btn
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onClick={() => (editor.chain().focus() as any).toggleTextSize('h2').run()}
-          active={editor.isActive('textSize', { level: 'h2' })}
+          onClick={() =>
+            (editor.chain().focus() as any).toggleTextSize("h2").run()
+          }
+          active={editor.isActive("textSize", { level: "h2" })}
           title="Medium heading (selected text only)"
         >
           <Heading2 className="w-4 h-4" />
         </Btn>
         <Btn
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onClick={() => (editor.chain().focus() as any).toggleTextSize('h3').run()}
-          active={editor.isActive('textSize', { level: 'h3' })}
+          onClick={() =>
+            (editor.chain().focus() as any).toggleTextSize("h3").run()
+          }
+          active={editor.isActive("textSize", { level: "h3" })}
           title="Small heading (selected text only)"
         >
           <Heading3 className="w-4 h-4" />
@@ -232,49 +266,85 @@ export function RichTextEditor({
 
         <Sep />
 
-        <Btn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Bold">
+        <Btn
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          active={editor.isActive("bold")}
+          title="Bold"
+        >
           <Bold className="w-4 h-4" />
         </Btn>
-        <Btn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} title="Italic">
+        <Btn
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          active={editor.isActive("italic")}
+          title="Italic"
+        >
           <Italic className="w-4 h-4" />
         </Btn>
-        <Btn onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} title="Strikethrough">
+        <Btn
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          active={editor.isActive("strike")}
+          title="Strikethrough"
+        >
           <Strikethrough className="w-4 h-4" />
         </Btn>
 
         <Sep />
 
-        <Btn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Bullet List">
+        <Btn
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          active={editor.isActive("bulletList")}
+          title="Bullet List"
+        >
           <List className="w-4 h-4" />
         </Btn>
-        <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Ordered List">
+        <Btn
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          active={editor.isActive("orderedList")}
+          title="Ordered List"
+        >
           <ListOrdered className="w-4 h-4" />
         </Btn>
 
         <Sep />
 
-        <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Blockquote">
+        <Btn
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          active={editor.isActive("blockquote")}
+          title="Blockquote"
+        >
           <Quote className="w-4 h-4" />
         </Btn>
-        <Btn onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Code Block">
+        <Btn
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          active={editor.isActive("codeBlock")}
+          title="Code Block"
+        >
           <Code className="w-4 h-4" />
         </Btn>
-        <Btn onClick={() => editor.chain().focus().setHorizontalRule().run()} active={false} title="Horizontal Rule">
+        <Btn
+          onClick={() => editor.chain().focus().setHorizontalRule().run()}
+          active={false}
+          title="Horizontal Rule"
+        >
           <Minus className="w-4 h-4" />
         </Btn>
 
         <Sep />
 
-        <Btn onClick={addLink} active={editor.isActive('link')} title="Link">
+        <Btn onClick={addLink} active={editor.isActive("link")} title="Link">
           <LinkIcon className="w-4 h-4" />
         </Btn>
       </div>
 
       {/* Editor */}
-      <EditorContent editor={editor} />
+      <div className="overflow-y-auto max-h-[80vh]">
+        <EditorContent editor={editor} />
+      </div>
 
       {error && (
-        <p className="text-sm text-red-600 px-4 py-2.5 bg-red-50 border-t border-red-200">{error}</p>
+        <p className="text-sm text-red-600 px-4 py-2.5 bg-red-50 border-t border-red-200">
+          {error}
+        </p>
       )}
     </div>
   );
@@ -307,8 +377,8 @@ function Btn({
       }}
       className={`p-1.5 rounded transition-colors ${
         active
-          ? 'bg-primary text-primary-foreground'
-          : 'text-foreground/70 hover:text-foreground hover:bg-muted'
+          ? "bg-primary text-primary-foreground"
+          : "text-foreground/70 hover:text-foreground hover:bg-muted"
       }`}
     >
       {children}

@@ -32,14 +32,22 @@ export function DocumentEditor({
   defaultSectionId,
   onClose,
 }: DocumentEditorProps) {
-  const { categories, createDocument, updateDocument, deleteDocument } = useAdmin();
+  const { categories, createDocument, updateDocument, deleteDocument } =
+    useAdmin();
 
   const [title, setTitle] = useState("");
   const [docId, setDocId] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState(defaultCategoryId ?? "");
-  const [selectedSection, setSelectedSection] = useState(defaultSectionId ?? "");
+  const [selectedCategory, setSelectedCategory] = useState(
+    defaultCategoryId ?? "",
+  );
+  const [selectedSection, setSelectedSection] = useState(
+    defaultSectionId ?? "",
+  );
   const [contentHtml, setContentHtml] = useState("");
-  const [contentJson, setContentJson] = useState<object>({ type: "doc", content: [] });
+  const [contentJson, setContentJson] = useState<object>({
+    type: "doc",
+    content: [],
+  });
   const [contentVersion, setContentVersion] = useState(0); // bumped on file import to sync editor
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -55,10 +63,12 @@ export function DocumentEditor({
         setTitle(doc.title);
         setDocId(doc.docId ?? "");
         setSelectedCategory(
-          typeof doc.categoryId === "object" ? doc.categoryId._id : doc.categoryId
+          typeof doc.categoryId === "object"
+            ? doc.categoryId._id
+            : doc.categoryId,
         );
         setSelectedSection(
-          typeof doc.sectionId === "object" ? doc.sectionId._id : doc.sectionId
+          typeof doc.sectionId === "object" ? doc.sectionId._id : doc.sectionId,
         );
         setContentHtml(doc.contentHtml ?? "");
         if (doc.contentJson && Object.keys(doc.contentJson).length > 0) {
@@ -80,7 +90,10 @@ export function DocumentEditor({
 
   // Plain-text extraction from HTML for search indexing
   const extractText = (html: string) =>
-    html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    html
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
   /** Called by FileImportButton after successful parse */
   const handleImport = (html: string, importedTitle?: string) => {
@@ -121,7 +134,8 @@ export function DocumentEditor({
   };
 
   const handleDelete = async () => {
-    if (!documentId || !confirm("Delete this document? This cannot be undone.")) return;
+    if (!documentId || !confirm("Delete this document? This cannot be undone."))
+      return;
     try {
       await deleteDocument(documentId);
       onClose();
@@ -155,112 +169,155 @@ export function DocumentEditor({
           <div className="h-80 rounded-xl bg-muted animate-pulse" />
         </div>
       ) : (
-      <div className="space-y-6">
-        {/* Info card */}
-        <Card className="p-6">
-          <h2 className="text-base font-semibold text-foreground mb-4">Document Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-medium mb-1.5">Title *</label>
-              <Input
-                value={title}
-                onChange={(e) => { setTitle(e.target.value); setErrors({ ...errors, title: "" }); }}
-                placeholder="Document title"
-                className={errors.title ? "border-red-500" : ""}
-              />
-              {errors.title && <p className="text-xs text-red-600 mt-1">{errors.title}</p>}
+        <div className="space-y-6">
+          {/* Info card */}
+          <Card className="p-6">
+            <h2 className="text-base font-semibold text-foreground mb-4">
+              Document Information
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">
+                  Title *
+                </label>
+                <Input
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    setErrors({ ...errors, title: "" });
+                  }}
+                  placeholder="Document title"
+                  className={errors.title ? "border-red-500" : ""}
+                />
+                {errors.title && (
+                  <p className="text-xs text-red-600 mt-1">{errors.title}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">
+                  Document ID{" "}
+                  <span className="text-muted-foreground text-xs">
+                    (e.g. RM-TD-P-25-002)
+                  </span>
+                </label>
+                <Input
+                  value={docId}
+                  onChange={(e) => setDocId(e.target.value)}
+                  placeholder="Optional — leave blank to skip"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1.5">
-                Document ID <span className="text-muted-foreground text-xs">(e.g. RM-TD-P-25-002)</span>
-              </label>
-              <Input
-                value={docId}
-                onChange={(e) => setDocId(e.target.value)}
-                placeholder="Optional — leave blank to skip"
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1.5">Category *</label>
-              <Select
-                value={selectedCategory}
-                onValueChange={(v) => { setSelectedCategory(v); setSelectedSection(""); setErrors({ ...errors, category: "" }); }}
-              >
-                <SelectTrigger className={errors.category ? "border-red-500" : ""}>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.category && <p className="text-xs text-red-600 mt-1">{errors.category}</p>}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">
+                  Category *
+                </label>
+                <Select
+                  value={selectedCategory}
+                  onValueChange={(v) => {
+                    setSelectedCategory(v);
+                    setSelectedSection("");
+                    setErrors({ ...errors, category: "" });
+                  }}
+                >
+                  <SelectTrigger
+                    className={errors.category ? "border-red-500" : ""}
+                  >
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.category && (
+                  <p className="text-xs text-red-600 mt-1">{errors.category}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">
+                  Section *
+                </label>
+                <Select
+                  value={selectedSection}
+                  onValueChange={(v) => {
+                    setSelectedSection(v);
+                    setErrors({ ...errors, section: "" });
+                  }}
+                  disabled={!selectedCategory}
+                >
+                  <SelectTrigger
+                    className={errors.section ? "border-red-500" : ""}
+                  >
+                    <SelectValue placeholder="Select section" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currentSections.map((sec) => (
+                      <SelectItem key={sec.id} value={sec.id}>
+                        {sec.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.section && (
+                  <p className="text-xs text-red-600 mt-1">{errors.section}</p>
+                )}
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1.5">Section *</label>
-              <Select
-                value={selectedSection}
-                onValueChange={(v) => { setSelectedSection(v); setErrors({ ...errors, section: "" }); }}
-                disabled={!selectedCategory}
-              >
-                <SelectTrigger className={errors.section ? "border-red-500" : ""}>
-                  <SelectValue placeholder="Select section" />
-                </SelectTrigger>
-                <SelectContent>
-                  {currentSections.map((sec) => (
-                    <SelectItem key={sec.id} value={sec.id}>{sec.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.section && <p className="text-xs text-red-600 mt-1">{errors.section}</p>}
-            </div>
-          </div>
-        </Card>
+          </Card>
 
-        {/* Editor card */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-foreground">Content</h2>
-            <FileImportButton
-              onImport={handleImport}
-              hasContent={contentHtml.trim().length > 0}
+          {/* Editor card */}
+          <Card className="p-4 2xl:p-6">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-base font-semibold text-foreground">
+                Content
+              </h2>
+              <FileImportButton
+                onImport={handleImport}
+                hasContent={contentHtml.trim().length > 0}
+              />
+            </div>
+            <RichTextEditor
+              value={contentHtml}
+              onChange={setContentHtml}
+              onChangeJson={setContentJson}
+              placeholder="Write your document content here..."
+              externalContentVersion={contentVersion}
             />
-          </div>
-          <RichTextEditor
-            value={contentHtml}
-            onChange={setContentHtml}
-            onChangeJson={setContentJson}
-            placeholder="Write your document content here..."
-            externalContentVersion={contentVersion}
-          />
-        </Card>
+          </Card>
 
-        {/* Error banner */}
-        {saveError && (
-          <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-            {saveError}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-3 flex-wrap">
-          <Button onClick={handleSave} disabled={isSaving} className="gap-2">
-            <Save className="w-4 h-4" />
-            {isSaving ? "Saving…" : "Save Document"}
-          </Button>
-          {documentId && (
-            <Button onClick={handleDelete} variant="destructive" className="gap-2">
-              <Trash2 className="w-4 h-4" />
-              Delete
-            </Button>
+          {/* Error banner */}
+          {saveError && (
+            <div className="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+              {saveError}
+            </div>
           )}
-          <Button onClick={onClose} variant="outline">Cancel</Button>
+
+          {/* Actions */}
+          <div className="flex gap-3 flex-wrap">
+            <Button onClick={handleSave} disabled={isSaving} className="gap-2">
+              <Save className="w-4 h-4" />
+              {isSaving ? "Saving…" : "Save Document"}
+            </Button>
+            {documentId && (
+              <Button
+                onClick={handleDelete}
+                variant="destructive"
+                className="gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </Button>
+            )}
+            <Button onClick={onClose} variant="outline">
+              Cancel
+            </Button>
+          </div>
         </div>
-      </div>
       )}
     </div>
   );
