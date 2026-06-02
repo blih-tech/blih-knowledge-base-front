@@ -453,78 +453,126 @@ export default function AdminReportsPage() {
   }
 
   // ── List View ──
+
+  const draftCount = reports.filter((r) => r.status === "draft").length;
+  const submittedCount = reports.filter((r) => r.status === "submitted").length;
+
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
-            <BarChart3 className="w-6 h-6 text-teal-600" /> Task Reports
+    <div className="space-y-6">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-teal-50">
+              <BarChart3 className="w-5 h-5 text-teal-600" />
+            </div>
+            Task Reports
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground">
             Department task reports — weekly, monthly, and quarterly
           </p>
         </div>
-        <Button size="sm" className="gap-1.5" onClick={() => { setSelectedReport(null); setView("create"); }}>
+        <Button className="gap-1.5 shadow-sm" onClick={() => { setSelectedReport(null); setView("create"); }}>
           <Plus className="w-4 h-4" /> New Report
         </Button>
       </div>
 
-      {/* Filters */}
-      <Card className="p-3 flex items-center gap-3 flex-wrap border shadow-sm">
-        <Filter className="w-4 h-4 text-muted-foreground shrink-0" />
-        <div className="flex gap-1">
-          {PERIOD_TYPES.map((p) => (
+      {/* ── Summary strip ── */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="px-4 py-3 border flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-secondary">
+            <FileText className="w-4 h-4 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-lg font-bold text-foreground leading-none">{total}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Total Reports</p>
+          </div>
+        </Card>
+        <Card className="px-4 py-3 border flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-gray-100">
+            <Edit3 className="w-4 h-4 text-gray-500" />
+          </div>
+          <div>
+            <p className="text-lg font-bold text-foreground leading-none">{draftCount}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Drafts</p>
+          </div>
+        </Card>
+        <Card className="px-4 py-3 border flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-emerald-50">
+            <Send className="w-4 h-4 text-emerald-600" />
+          </div>
+          <div>
+            <p className="text-lg font-bold text-foreground leading-none">{submittedCount}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Submitted</p>
+          </div>
+        </Card>
+      </div>
+
+      {/* ── Filters ── */}
+      <Card className="border shadow-sm">
+        <div className="px-4 py-3 flex items-center gap-3 flex-wrap">
+          {/* Period tabs */}
+          <div className="flex items-center gap-0.5 p-0.5 bg-secondary rounded-lg">
+            {PERIOD_TYPES.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => { setFilterPeriod(p.value as PeriodType | ""); setPage(1); }}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  filterPeriod === p.value
+                    ? "bg-white text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Clear filters */}
+          {hasFilters && (
             <Button
-              key={p.value}
-              variant={filterPeriod === p.value ? "default" : "ghost"}
+              variant="ghost"
               size="sm"
-              className="text-xs h-7"
-              onClick={() => { setFilterPeriod(p.value as PeriodType | ""); setPage(1); }}
+              className="h-7 text-xs gap-1 text-muted-foreground hover:text-red-600"
+              onClick={() => { setFilterPeriod(""); setFilterDept(""); setFilterStatus(""); setPage(1); }}
             >
-              {p.label}
+              <X className="w-3 h-3" /> Clear filters
             </Button>
-          ))}
+          )}
+
+          {/* Right-aligned: Department + Status */}
+          <div className="ml-auto flex items-center gap-3">
+            <div className="relative">
+              <Building2 className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <select
+                value={filterDept}
+                onChange={(e) => { setFilterDept(e.target.value); setPage(1); }}
+                className="h-8 rounded-lg border border-input bg-background pl-8 pr-6 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer appearance-none"
+              >
+                <option value="">All Departments</option>
+                {departments.map((d) => (
+                  <option key={d._id} value={d._id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="relative">
+              <Clock className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <select
+                value={filterStatus}
+                onChange={(e) => { setFilterStatus(e.target.value as ReportStatus | ""); setPage(1); }}
+                className="h-8 rounded-lg border border-input bg-background pl-8 pr-6 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer appearance-none"
+              >
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
-
-        <div className="w-px h-6 bg-border hidden sm:block" />
-
-        <select
-          value={filterDept}
-          onChange={(e) => { setFilterDept(e.target.value); setPage(1); }}
-          className="h-7 rounded-md border border-input bg-background px-2 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-        >
-          <option value="">All Departments</option>
-          {departments.map((d) => (
-            <option key={d._id} value={d._id}>{d.name}</option>
-          ))}
-        </select>
-
-        <select
-          value={filterStatus}
-          onChange={(e) => { setFilterStatus(e.target.value as ReportStatus | ""); setPage(1); }}
-          className="h-7 rounded-md border border-input bg-background px-2 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-        >
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s.value} value={s.value}>{s.label}</option>
-          ))}
-        </select>
-
-        {hasFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-xs gap-1 text-muted-foreground"
-            onClick={() => { setFilterPeriod(""); setFilterDept(""); setFilterStatus(""); setPage(1); }}
-          >
-            <X className="w-3 h-3" /> Clear
-          </Button>
-        )}
-
-        <span className="ml-auto text-xs text-muted-foreground">{total} report{total !== 1 ? "s" : ""}</span>
       </Card>
 
-      {/* Error */}
+      {/* ── Error ── */}
       {error && (
         <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
           <AlertCircle className="w-4 h-4 shrink-0" /> {error}
@@ -532,22 +580,24 @@ export default function AdminReportsPage() {
         </div>
       )}
 
-      {/* Loading */}
+      {/* ── Content ── */}
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
+            <div key={i} className="h-[88px] rounded-xl bg-muted/60 animate-pulse" />
           ))}
         </div>
       ) : reports.length === 0 ? (
-        <Card className="p-12 text-center border">
-          <FileText className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm font-medium text-foreground">No reports found</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {hasFilters ? "Try adjusting your filters." : "Create your first task report to get started."}
+        <Card className="py-16 text-center border">
+          <div className="mx-auto w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-4">
+            <FileText className="w-6 h-6 text-muted-foreground/50" />
+          </div>
+          <p className="text-sm font-semibold text-foreground">No reports found</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-[240px] mx-auto">
+            {hasFilters ? "Try adjusting your filters to find reports." : "Create your first task report to get started."}
           </p>
           {!hasFilters && (
-            <Button size="sm" className="mt-4 gap-1.5" onClick={() => setView("create")}>
+            <Button size="sm" className="mt-5 gap-1.5" onClick={() => setView("create")}>
               <Plus className="w-4 h-4" /> Create Report
             </Button>
           )}
@@ -555,7 +605,7 @@ export default function AdminReportsPage() {
       ) : (
         <>
           {/* Report list */}
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {reports.map((r) => (
               <ReportCard key={r._id} report={r} onClick={() => { setSelectedReport(r); setView("detail"); }} />
             ))}
@@ -563,15 +613,16 @@ export default function AdminReportsPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-2">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                Previous
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <Button variant="outline" size="sm" className="text-xs" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                ← Previous
               </Button>
-              <span className="text-xs text-muted-foreground">
-                Page {page} of {totalPages}
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Page <span className="font-medium text-foreground">{page}</span> of{" "}
+                <span className="font-medium text-foreground">{totalPages}</span>
               </span>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
-                Next
+              <Button variant="outline" size="sm" className="text-xs" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                Next →
               </Button>
             </div>
           )}
