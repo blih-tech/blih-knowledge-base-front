@@ -18,6 +18,8 @@ import {
   BookOpen,
   FileText,
   Edit2,
+  Check,
+  X,
 } from "lucide-react";
 
 // ─── Main component ────────────────────────────────────────────────────────────
@@ -28,7 +30,9 @@ function StructureManagementContent() {
     categories,
     isLoading,
     createCategory,
+    updateCategory,
     createSection,
+    updateSection,
     deleteCategory,
     deleteSection,
   } = useAdmin();
@@ -40,6 +44,12 @@ function StructureManagementContent() {
   const [newSecName, setNewSecName] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // ── Inline rename state ────────────────────────────────────────────────────
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editingCatName, setEditingCatName] = useState("");
+  const [editingSecId, setEditingSecId] = useState<string | null>(null);
+  const [editingSecName, setEditingSecName] = useState("");
 
   // ─── Navigation helpers ───────────────────────────────────────────────────
 
@@ -86,6 +96,44 @@ function StructureManagementContent() {
   const handleDeleteSection = (id: string, name: string) => {
     if (!confirm(`Delete section "${name}" and all its documents?`)) return;
     withBusy(`del-sec-${id}`, () => deleteSection(id));
+  };
+
+  // ── Rename handlers ───────────────────────────────────────────────────────
+
+  const startEditCategory = (id: string, currentName: string) => {
+    setEditingCatId(id);
+    setEditingCatName(currentName);
+  };
+
+  const cancelEditCategory = () => {
+    setEditingCatId(null);
+    setEditingCatName("");
+  };
+
+  const handleRenameCategory = (id: string) => {
+    if (!editingCatName.trim()) return;
+    withBusy(`rename-cat-${id}`, async () => {
+      await updateCategory(id, { name: editingCatName.trim() });
+      cancelEditCategory();
+    });
+  };
+
+  const startEditSection = (id: string, currentName: string) => {
+    setEditingSecId(id);
+    setEditingSecName(currentName);
+  };
+
+  const cancelEditSection = () => {
+    setEditingSecId(null);
+    setEditingSecName("");
+  };
+
+  const handleRenameSection = (id: string) => {
+    if (!editingSecName.trim()) return;
+    withBusy(`rename-sec-${id}`, async () => {
+      await updateSection(id, { name: editingSecName.trim() });
+      cancelEditSection();
+    });
   };
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -164,7 +212,7 @@ function StructureManagementContent() {
                   className="flex items-center justify-between px-4 py-3.5 cursor-pointer hover:bg-secondary/60 transition-colors select-none"
                   onClick={() => setExpandedCat(isCatExpanded ? null : category.id)}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className="p-1.5 rounded-md bg-teal-50 shrink-0">
                       {isCatExpanded ? (
                         <ChevronDown className="w-3.5 h-3.5 text-teal-700" />
@@ -172,31 +220,86 @@ function StructureManagementContent() {
                         <ChevronRight className="w-3.5 h-3.5 text-teal-700" />
                       )}
                     </div>
-                    <span className="font-semibold text-foreground text-sm truncate">
-                      {category.name}
-                    </span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Badge variant="secondary" className="text-xs font-normal">
-                        {category.sections.length} section{category.sections.length !== 1 ? "s" : ""}
-                      </Badge>
-                      <Badge variant="secondary" className="text-xs font-normal">
-                        {category.count} doc{category.count !== 1 ? "s" : ""}
-                      </Badge>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={isDeleting}
-                    onClick={(e) => { e.stopPropagation(); handleDeleteCategory(category.id, category.name); }}
-                    className="text-muted-foreground hover:text-red-600 hover:bg-red-50 shrink-0"
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+
+                    {editingCatId === category.id ? (
+                      /* ── Inline rename input ── */
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                        <Input
+                          autoFocus
+                          value={editingCatName}
+                          onChange={(e) => setEditingCatName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleRenameCategory(category.id);
+                            if (e.key === "Escape") cancelEditCategory();
+                          }}
+                          className="h-7 text-sm font-semibold flex-1"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={busyId === `rename-cat-${category.id}`}
+                          onClick={() => handleRenameCategory(category.id)}
+                          className="text-green-600 hover:text-green-700 hover:bg-green-50 shrink-0"
+                        >
+                          {busyId === `rename-cat-${category.id}` ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Check className="w-4 h-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={cancelEditCategory}
+                          className="text-muted-foreground hover:text-foreground shrink-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
                     ) : (
-                      <Trash2 className="w-4 h-4" />
+                      /* ── Normal name display ── */
+                      <>
+                        <span className="font-semibold text-foreground text-sm truncate">
+                          {category.name}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Badge variant="secondary" className="text-xs font-normal">
+                            {category.sections.length} section{category.sections.length !== 1 ? "s" : ""}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs font-normal">
+                            {category.count} doc{category.count !== 1 ? "s" : ""}
+                          </Badge>
+                        </div>
+                      </>
                     )}
-                  </Button>
+                  </div>
+
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    {editingCatId !== category.id && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={(e) => { e.stopPropagation(); startEditCategory(category.id, category.name); }}
+                        className="text-muted-foreground hover:text-primary hover:bg-teal-50"
+                        title="Rename category"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={isDeleting}
+                      onClick={(e) => { e.stopPropagation(); handleDeleteCategory(category.id, category.name); }}
+                      className="text-muted-foreground hover:text-red-600 hover:bg-red-50 shrink-0"
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 {/* ── Sections ── */}
@@ -219,21 +322,76 @@ function StructureManagementContent() {
                             className="flex items-center justify-between bg-white rounded-lg border border-border px-3 py-2.5 shadow-xs cursor-pointer hover:bg-secondary/40 transition-colors select-none"
                             onClick={() => setExpandedSec(isSecExpanded ? null : section.id)}
                           >
-                            <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
                               {isSecExpanded ? (
                                 <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                               ) : (
                                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                               )}
                               <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                              <span className="text-sm font-medium text-foreground truncate">
-                                {section.name}
-                              </span>
-                              <Badge variant="secondary" className="text-xs font-normal shrink-0">
-                                {section.documents.length} doc{section.documents.length !== 1 ? "s" : ""}
-                              </Badge>
+
+                              {editingSecId === section.id ? (
+                                /* ── Inline rename input ── */
+                                <div className="flex items-center gap-1.5 flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                                  <Input
+                                    autoFocus
+                                    value={editingSecName}
+                                    onChange={(e) => setEditingSecName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") handleRenameSection(section.id);
+                                      if (e.key === "Escape") cancelEditSection();
+                                    }}
+                                    className="h-7 text-sm font-medium flex-1"
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    disabled={busyId === `rename-sec-${section.id}`}
+                                    onClick={() => handleRenameSection(section.id)}
+                                    className="text-green-600 hover:text-green-700 hover:bg-green-50 shrink-0"
+                                  >
+                                    {busyId === `rename-sec-${section.id}` ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Check className="w-4 h-4" />
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    onClick={cancelEditSection}
+                                    className="text-muted-foreground hover:text-foreground shrink-0"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                /* ── Normal name display ── */
+                                <>
+                                  <span className="text-sm font-medium text-foreground truncate">
+                                    {section.name}
+                                  </span>
+                                  <Badge variant="secondary" className="text-xs font-normal shrink-0">
+                                    {section.documents.length} doc{section.documents.length !== 1 ? "s" : ""}
+                                  </Badge>
+                                </>
+                              )}
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
+                              {editingSecId !== section.id && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    startEditSection(section.id, section.name);
+                                  }}
+                                  className="text-muted-foreground hover:text-primary hover:bg-teal-50"
+                                  title="Rename section"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="icon-sm"

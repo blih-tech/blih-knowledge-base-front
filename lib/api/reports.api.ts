@@ -2,108 +2,98 @@ import { apiAxios } from "./client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type ReportPeriod = "week" | "month" | "quarter" | "year" | "custom";
+export type PeriodType = "weekly" | "monthly" | "quarterly";
+export type ReportStatus = "draft" | "submitted";
 
-export interface ReportParams {
-  period: ReportPeriod;
-  from?: string;
-  to?: string;
-  departmentId?: string;
+export interface TaskReportAuthor {
+  _id: string;
+  name: string;
+  email: string;
+  position?: string;
 }
 
-export interface SummaryReport {
-  period: { start: string; end: string; label: string };
-  totalEmployees: number;
-  activeEmployees: number;
-  inactiveEmployees: number;
-  newEmployees: number;
-  totalClients: number;
-  activeClients: number;
-  newClients: number;
-  totalDocuments: number;
-  newDocuments: number;
-  totalObservations: number;
-  newObservations: number;
-  totalFaqs: number;
-  newFaqs: number;
-  totalDepartments: number;
+export interface TaskReportDepartment {
+  _id: string;
+  name: string;
 }
 
-export interface TimelinePoint {
-  date: string;
-  count: number;
+export interface TaskReport {
+  _id: string;
+  title: string;
+  content: string;
+  periodType: PeriodType;
+  periodStart: string;
+  periodEnd: string;
+  department: TaskReportDepartment;
+  author: TaskReportAuthor;
+  status: ReportStatus;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface EmployeeReport {
-  period: { start: string; end: string };
-  roleDistribution: { role: string; count: number }[];
-  departmentBreakdown: {
-    departmentId: string | null;
-    departmentName: string;
+export interface TaskReportListResponse {
+  reports: TaskReport[];
+  pagination: {
+    page: number;
+    limit: number;
     total: number;
-    admins: number;
-    users: number;
-  }[];
-  newHiresTimeline: TimelinePoint[];
-  statusDistribution: { active: number; inactive: number };
-}
-
-export interface ClientReport {
-  period: { start: string; end: string };
-  statusDistribution: { status: string; count: number }[];
-  tierDistribution: { tier: string; count: number }[];
-  newClientsTimeline: TimelinePoint[];
-  industryBreakdown: { industry: string; count: number }[];
-  assignmentsPerDept: {
-    departmentName: string;
-    totalAssignments: number;
-    employeesWithClients: number;
-  }[];
-}
-
-export interface ContentReport {
-  period: { start: string; end: string };
-  docsTimeline: { date: string; created: number }[];
-  docsUpdated: number;
-  categoryBreakdown: {
-    categoryId: string;
-    categoryName: string;
-    total: number;
-    newInPeriod: number;
-  }[];
-  totalFaqs: number;
-  newFaqs: number;
-}
-
-export interface ObservationReport {
-  period: { start: string; end: string };
-  sentimentDistribution: {
-    positive: number;
-    negative: number;
-    neutral: number;
+    totalPages: number;
   };
-  typeDistribution: { type: string; count: number }[];
-  timeline: TimelinePoint[];
-  topContributors: {
-    authorId: string;
-    authorName: string;
-    count: number;
-  }[];
+}
+
+export interface TaskReportFilters {
+  page?: number;
+  limit?: number;
+  periodType?: PeriodType;
+  department?: string;
+  author?: string;
+  status?: ReportStatus;
+  sortBy?: "createdAt" | "periodStart" | "title";
+  sortOrder?: "asc" | "desc";
+}
+
+export interface CreateTaskReportData {
+  title: string;
+  content: string;
+  periodType: PeriodType;
+  periodStart: string;
+  periodEnd: string;
+  department: string;
+  status?: ReportStatus;
+}
+
+export interface UpdateTaskReportData {
+  title?: string;
+  content?: string;
+  periodType?: PeriodType;
+  periodStart?: string;
+  periodEnd?: string;
+  department?: string;
+  status?: ReportStatus;
 }
 
 // ─── API Functions ────────────────────────────────────────────────────────────
 
-export const getSummaryReport = (params: ReportParams): Promise<SummaryReport> =>
-  apiAxios.get("/reports/summary", { params }).then((r) => r.data.data);
+export const listTaskReports = (
+  filters?: TaskReportFilters
+): Promise<TaskReportListResponse> =>
+  apiAxios
+    .get("/reports/task-reports", { params: filters })
+    .then((r) => r.data.data);
 
-export const getEmployeeReport = (params: ReportParams): Promise<EmployeeReport> =>
-  apiAxios.get("/reports/employees", { params }).then((r) => r.data.data);
+export const getTaskReport = (id: string): Promise<TaskReport> =>
+  apiAxios.get(`/reports/task-reports/${id}`).then((r) => r.data.data);
 
-export const getClientReport = (params: ReportParams): Promise<ClientReport> =>
-  apiAxios.get("/reports/clients", { params }).then((r) => r.data.data);
+export const createTaskReport = (
+  data: CreateTaskReportData
+): Promise<TaskReport> =>
+  apiAxios.post("/reports/task-reports", data).then((r) => r.data.data);
 
-export const getContentReport = (params: ReportParams): Promise<ContentReport> =>
-  apiAxios.get("/reports/content", { params }).then((r) => r.data.data);
+export const updateTaskReport = (
+  id: string,
+  data: UpdateTaskReportData
+): Promise<TaskReport> =>
+  apiAxios.put(`/reports/task-reports/${id}`, data).then((r) => r.data.data);
 
-export const getObservationReport = (params: ReportParams): Promise<ObservationReport> =>
-  apiAxios.get("/reports/observations", { params }).then((r) => r.data.data);
+export const deleteTaskReport = (id: string): Promise<void> =>
+  apiAxios.delete(`/reports/task-reports/${id}`).then(() => undefined);

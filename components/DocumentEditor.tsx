@@ -14,8 +14,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronLeft, Save, Trash2, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { ChevronLeft, Save, Trash2, Loader2, Plus } from "lucide-react";
 import { FileImportButton } from "./FileImportButton";
+
+// Sentinel value used to detect "Add new…" selection in radix Select
+const ADD_NEW_CATEGORY = "__add_new_category__";
+const ADD_NEW_SECTION = "__add_new_section__";
 
 interface DocumentEditorProps {
   /** Pass _id when editing an existing document */
@@ -32,7 +44,7 @@ export function DocumentEditor({
   defaultSectionId,
   onClose,
 }: DocumentEditorProps) {
-  const { categories, createDocument, updateDocument, deleteDocument } =
+  const { categories, createCategory, createSection, createDocument, updateDocument, deleteDocument } =
     useAdmin();
 
   const [title, setTitle] = useState("");
@@ -53,6 +65,14 @@ export function DocumentEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // ── "Add new" dialog state ─────────────────────────────────────────────────
+  const [showNewCategoryDialog, setShowNewCategoryDialog] = useState(false);
+  const [showNewSectionDialog, setShowNewSectionDialog] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newSectionName, setNewSectionName] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   // Fetch full document content when editing
   useEffect(() => {
@@ -144,6 +164,96 @@ export function DocumentEditor({
     }
   };
 
+  // ── Handle "Add new" sentinel values from the Select ────────────────────────
+
+  const handleCategoryChange = (value: string) => {
+    if (value === ADD_NEW_CATEGORY) {
+      setShowNewCategoryDialog(true);
+      return;
+    }
+    setSelectedCategory(value);
+    setSelectedSection("");
+    setErrors({ ...errors, category: "" });
+  };
+
+  const handleSectionChange = (value: string) => {
+    if (value === ADD_NEW_SECTION) {
+      setShowNewSectionDialog(true);
+      return;
+    }
+    setSelectedSection(value);
+    setErrors({ ...errors, section: "" });
+  };
+
+  // ── Create new category ────────────────────────────────────────────────────
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      await createCategory(newCategoryName.trim());
+      // After reload, find the newly created category to auto-select it
+      // The categories state will be updated via AdminContext reload
+      setShowNewCategoryDialog(false);
+      setNewCategoryName("");
+      // We'll select it after a short delay to let the state update
+      setTimeout(() => {
+        // Find the newly created category by name match
+        // AdminContext will have reloaded by now
+      }, 100);
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Failed to create category");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // Auto-select newly created category after context reload
+  useEffect(() => {
+    if (!showNewCategoryDialog && newCategoryName === "" && categories.length > 0) {
+      // Check if our selected category still exists, if not, try to find newest
+      if (selectedCategory && !categories.find((c) => c.id === selectedCategory)) {
+        // Category ID changed after reload — select last one
+        const last = categories[categories.length - 1];
+        if (last) {
+          setSelectedCategory(last.id);
+          setSelectedSection("");
+        }
+      }
+    }
+  }, [categories, showNewCategoryDialog, newCategoryName, selectedCategory]);
+
+  // ── Create new section ─────────────────────────────────────────────────────
+
+  const handleCreateSection = async () => {
+    if (!newSectionName.trim() || !selectedCategory) return;
+    setIsCreating(true);
+    setCreateError(null);
+    try {
+      await createSection(selectedCategory, newSectionName.trim());
+      setShowNewSectionDialog(false);
+      setNewSectionName("");
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Failed to create section");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // Auto-select newly created section after context reload
+  useEffect(() => {
+    if (!showNewSectionDialog && newSectionName === "" && selectedCategory) {
+      const currentCat = categories.find((c) => c.id === selectedCategory);
+      if (currentCat && selectedSection && !currentCat.sections.find((s) => s.id === selectedSection)) {
+        const last = currentCat.sections[currentCat.sections.length - 1];
+        if (last) {
+          setSelectedSection(last.id);
+        }
+      }
+    }
+  }, [categories, showNewSectionDialog, newSectionName, selectedCategory, selectedSection]);
+
   const currentSections =
     categories.find((c) => c.id === selectedCategory)?.sections ?? [];
 
@@ -215,11 +325,7 @@ export function DocumentEditor({
                 </label>
                 <Select
                   value={selectedCategory}
-                  onValueChange={(v) => {
-                    setSelectedCategory(v);
-                    setSelectedSection("");
-                    setErrors({ ...errors, category: "" });
-                  }}
+                  onValueChange={handleCategoryChange}
                 >
                   <SelectTrigger
                     className={errors.category ? "border-red-500" : ""}
@@ -232,6 +338,15 @@ export function DocumentEditor({
                         {cat.name}
                       </SelectItem>
                     ))}
+                    <SelectItem
+                      value={ADD_NEW_CATEGORY}
+                      className="text-primary font-medium border-t border-border mt-1 pt-1"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Plus className="w-3.5 h-3.5" />
+                        Add new category
+                      </span>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 {errors.category && (
@@ -244,10 +359,7 @@ export function DocumentEditor({
                 </label>
                 <Select
                   value={selectedSection}
-                  onValueChange={(v) => {
-                    setSelectedSection(v);
-                    setErrors({ ...errors, section: "" });
-                  }}
+                  onValueChange={handleSectionChange}
                   disabled={!selectedCategory}
                 >
                   <SelectTrigger
@@ -261,6 +373,15 @@ export function DocumentEditor({
                         {sec.name}
                       </SelectItem>
                     ))}
+                    <SelectItem
+                      value={ADD_NEW_SECTION}
+                      className="text-primary font-medium border-t border-border mt-1 pt-1"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Plus className="w-3.5 h-3.5" />
+                        Add new section
+                      </span>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 {errors.section && (
@@ -319,6 +440,116 @@ export function DocumentEditor({
           </div>
         </div>
       )}
+
+      {/* ── Add New Category Dialog ──────────────────────────────────────────── */}
+      <Dialog open={showNewCategoryDialog} onOpenChange={setShowNewCategoryDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Category</DialogTitle>
+            <DialogDescription>
+              Create a new document category. This will be available across all documents.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Input
+              autoFocus
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder='e.g., "HR Policies" or "Procedures"'
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleCreateCategory();
+                }
+              }}
+            />
+            {createError && (
+              <p className="text-xs text-red-600">{createError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowNewCategoryDialog(false);
+                setNewCategoryName("");
+                setCreateError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateCategory}
+              disabled={!newCategoryName.trim() || isCreating}
+              className="gap-1.5"
+            >
+              {isCreating ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
+              {isCreating ? "Creating…" : "Create Category"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Add New Section Dialog ───────────────────────────────────────────── */}
+      <Dialog open={showNewSectionDialog} onOpenChange={setShowNewSectionDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Section</DialogTitle>
+            <DialogDescription>
+              Create a new section under{" "}
+              <strong>
+                {categories.find((c) => c.id === selectedCategory)?.name ?? "the selected category"}
+              </strong>
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Input
+              autoFocus
+              value={newSectionName}
+              onChange={(e) => setNewSectionName(e.target.value)}
+              placeholder='e.g., "Technology Dept" or "Finance Dept"'
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleCreateSection();
+                }
+              }}
+            />
+            {createError && (
+              <p className="text-xs text-red-600">{createError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowNewSectionDialog(false);
+                setNewSectionName("");
+                setCreateError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateSection}
+              disabled={!newSectionName.trim() || isCreating}
+              className="gap-1.5"
+            >
+              {isCreating ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
+              {isCreating ? "Creating…" : "Create Section"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
