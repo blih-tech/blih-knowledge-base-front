@@ -15,6 +15,7 @@ export interface SectionNode {
   name: string;
   slug: string;
   order: number;
+  isActive?: boolean;
   documents: DocSummary[];
 }
 
@@ -23,6 +24,7 @@ export interface CategoryNode {
   name: string;
   slug: string;
   order: number;
+  isActive?: boolean;
   count: number;
   sections: SectionNode[];
 }
@@ -56,7 +58,7 @@ export const getFullTree = (): Promise<CategoryNode[]> =>
 // ─── Admin reads (client-side, attaches auth token via getSession) ───────────────
 
 export const getFullTreeClient = (): Promise<CategoryNode[]> =>
-  apiAxios.get("/docs").then((res) => res.data.data as CategoryNode[]);
+  apiAxios.get("/docs/admin-tree").then((res) => res.data.data as CategoryNode[]);
 
 export const getDocumentBySlug = (slug: string): Promise<FullDocument> =>
   serverFetch<FullDocument>(`/docs/doc/${slug}`);

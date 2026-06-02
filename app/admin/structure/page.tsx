@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Plus,
   Trash2,
@@ -136,6 +137,16 @@ function StructureManagementContent() {
     });
   };
 
+  // ── Visibility toggle handlers ─────────────────────────────────────────────
+
+  const handleToggleCategory = (id: string, currentActive: boolean) => {
+    withBusy(`toggle-cat-${id}`, () => updateCategory(id, { isActive: !currentActive }));
+  };
+
+  const handleToggleSection = (id: string, currentActive: boolean) => {
+    withBusy(`toggle-sec-${id}`, () => updateSection(id, { isActive: !currentActive }));
+  };
+
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   return (
@@ -259,10 +270,15 @@ function StructureManagementContent() {
                     ) : (
                       /* ── Normal name display ── */
                       <>
-                        <span className="font-semibold text-foreground text-sm truncate">
+                        <span className={`font-semibold text-sm truncate ${category.isActive !== false ? 'text-foreground' : 'text-muted-foreground'}`}>
                           {category.name}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
+                          {category.isActive === false && (
+                            <Badge variant="outline" className="text-xs font-normal text-amber-600 border-amber-300 bg-amber-50">
+                              Hidden
+                            </Badge>
+                          )}
                           <Badge variant="secondary" className="text-xs font-normal">
                             {category.sections.length} section{category.sections.length !== 1 ? "s" : ""}
                           </Badge>
@@ -274,7 +290,20 @@ function StructureManagementContent() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-0.5 shrink-0">
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* Visibility toggle */}
+                    <div
+                      className="flex items-center gap-1.5 mr-1"
+                      onClick={(e) => e.stopPropagation()}
+                      title={category.isActive !== false ? "Visible on home page — click to hide" : "Hidden from home page — click to show"}
+                    >
+                      <Switch
+                        checked={category.isActive !== false}
+                        onCheckedChange={() => handleToggleCategory(category.id, category.isActive !== false)}
+                        disabled={busyId === `toggle-cat-${category.id}`}
+                        className="scale-90"
+                      />
+                    </div>
                     {editingCatId !== category.id && (
                       <Button
                         variant="ghost"
@@ -368,16 +397,36 @@ function StructureManagementContent() {
                               ) : (
                                 /* ── Normal name display ── */
                                 <>
-                                  <span className="text-sm font-medium text-foreground truncate">
+                                  <span className={`text-sm font-medium truncate ${section.isActive !== false ? 'text-foreground' : 'text-muted-foreground'}`}>
                                     {section.name}
                                   </span>
-                                  <Badge variant="secondary" className="text-xs font-normal shrink-0">
-                                    {section.documents.length} doc{section.documents.length !== 1 ? "s" : ""}
-                                  </Badge>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {section.isActive === false && (
+                                      <Badge variant="outline" className="text-[10px] font-normal text-amber-600 border-amber-300 bg-amber-50 px-1.5 py-0">
+                                        Hidden
+                                      </Badge>
+                                    )}
+                                    <Badge variant="secondary" className="text-xs font-normal shrink-0">
+                                      {section.documents.length} doc{section.documents.length !== 1 ? "s" : ""}
+                                    </Badge>
+                                  </div>
                                 </>
                               )}
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
+                              {/* Visibility toggle */}
+                              <div
+                                className="flex items-center gap-1 mr-0.5"
+                                onClick={(e) => e.stopPropagation()}
+                                title={section.isActive !== false ? "Visible on home page — click to hide" : "Hidden from home page — click to show"}
+                              >
+                                <Switch
+                                  checked={section.isActive !== false}
+                                  onCheckedChange={() => handleToggleSection(section.id, section.isActive !== false)}
+                                  disabled={busyId === `toggle-sec-${section.id}`}
+                                  className="scale-[0.8]"
+                                />
+                              </div>
                               {editingSecId !== section.id && (
                                 <Button
                                   variant="ghost"
