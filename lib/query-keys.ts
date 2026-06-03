@@ -44,6 +44,12 @@ export const queryKeys = {
       ["meetings", "list", filters] as const,
     detail: (id: string) => ["meetings", "detail", id] as const,
   },
+  surveys: {
+    all: ["surveys"] as const,
+    list: (filters: Record<string, unknown>) =>
+      ["surveys", "list", filters] as const,
+    detail: (id: string) => ["surveys", "detail", id] as const,
+  },
   profile: {
     me: ["profile", "me"] as const,
   },

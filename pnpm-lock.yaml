@@ -113,6 +113,9 @@ importers:
       '@tiptap/starter-kit':
         specifier: ^3.23.6
         version: 3.23.6
+      '@types/uuid':
+        specifier: ^11.0.0
+        version: 11.0.0
       '@vercel/analytics':
         specifier: 1.6.1
         version: 1.6.1(next@16.2.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)
@@ -173,9 +176,15 @@ importers:
       sonner:
         specifier: ^1.7.1
         version: 1.7.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      survey-react-ui:
+        specifier: ^2.5.27
+        version: 2.5.27(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(survey-core@2.5.27)
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.4.0
+      uuid:
+        specifier: ^14.0.0
+        version: 14.0.0
       vaul:
         specifier: ^1.1.2
         version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1415,6 +1424,10 @@ packages:
   '@types/use-sync-external-store@0.0.6':
     resolution: {integrity: sha512-zFDAD+tlpf2r4asuHEj0XH6pY6i0g5NeAHPn+15wk3BV6JA69eERFXC1gyGThDkVa1zCyKr5jox1+2LbV/AMLg==}
 
+  '@types/uuid@11.0.0':
+    resolution: {integrity: sha512-HVyk8nj2m+jcFRNazzqyVKiZezyhDKrGUA3jlEcg/nZ6Ms+qHwocba1Y/AaVaznJTAM9xpdFSh+ptbNrhOGvZA==}
+    deprecated: This is a stub types definition. uuid provides its own type definitions, so you do not need this installed.
+
   '@vercel/analytics@1.6.1':
     resolution: {integrity: sha512-oH9He/bEM+6oKlv3chWuOOcp8Y6fo6/PSro8hEkgCW3pu9/OiCXiUpRUogDh3Fs3LH2sosDrx8CxeOLBEE+afg==}
     peerDependencies:
@@ -2083,6 +2096,16 @@ packages:
       babel-plugin-macros:
         optional: true
 
+  survey-core@2.5.27:
+    resolution: {integrity: sha512-rL7HlPlKFzDr2qrm86EQQabyx5uSffa2IVluEXT9JqSiUTlZJRsNN7hNcHJZoC5i8wWa7MRWj4B+7/D4NDProg==}
+
+  survey-react-ui@2.5.27:
+    resolution: {integrity: sha512-zQEgqRmbVk2jPGQ0L5PEog7sXxBwH7uYlugfASazSqoS4s40FxXyQtfyt8F1rsUfuDSokPYQ0ixllRnFLRbLbQ==}
+    peerDependencies:
+      react: ^16.5.0 || ^17.0.1 || ^18.1.0 || ^19.0.0
+      react-dom: ^16.5.0 || ^17.0.1 || ^18.1.0 || ^19.0.0
+      survey-core: 2.5.27
+
   tailwind-merge@3.4.0:
     resolution: {integrity: sha512-uSaO4gnW+b3Y2aWoWfFpX62vn2sR3skfhbjsEnaBI81WD1wBLlHZe5sWf0AqjksNdYTbGBEd0UasQMT3SNV15g==}
 
@@ -2143,6 +2166,10 @@ packages:
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
+
+  uuid@14.0.0:
+    resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
+    hasBin: true
 
   uuid@8.3.2:
     resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
@@ -3346,6 +3373,10 @@ snapshots:
 
   '@types/use-sync-external-store@0.0.6': {}
 
+  '@types/uuid@11.0.0':
+    dependencies:
+      uuid: 14.0.0
+
   '@vercel/analytics@1.6.1(next@16.2.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)':
     optionalDependencies:
       next: 16.2.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -3992,6 +4023,14 @@ snapshots:
       client-only: 0.0.1
       react: 19.2.4
 
+  survey-core@2.5.27: {}
+
+  survey-react-ui@2.5.27(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(survey-core@2.5.27):
+    dependencies:
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      survey-core: 2.5.27
+
   tailwind-merge@3.4.0: {}
 
   tailwindcss@4.2.0: {}
@@ -4034,6 +4073,8 @@ snapshots:
       react: 19.2.4
 
   util-deprecate@1.0.2: {}
+
+  uuid@14.0.0: {}
 
   uuid@8.3.2: {}
 

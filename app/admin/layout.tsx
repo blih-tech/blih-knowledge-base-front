@@ -41,6 +41,7 @@ import {
   Building2,
   BarChart3,
   CalendarCheck,
+  ClipboardList,
   UserCircle,
 } from "lucide-react";
 
@@ -61,6 +62,7 @@ const navItems: {
   { href: "/admin/faq",          label: "FAQs",               icon: HelpCircle,      permission: "faq:manage" },
   { href: "/admin/reports",      label: "Reports",            icon: BarChart3,       permission: "reports:view" },
   { href: "/admin/meetings",     label: "Meeting Minutes",    icon: CalendarCheck,   permission: "meetings:manage" },
+  { href: "/admin/surveys",      label: "Surveys",            icon: ClipboardList,   permission: "surveys:manage" },
 ];
 
 // ─── Admin Sidebar ────────────────────────────────────────────────────────────

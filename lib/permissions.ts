@@ -11,6 +11,7 @@ export const PERMISSIONS = [
   'departments:manage',
   'reports:view',
   'meetings:manage',
+  'surveys:manage',
   'ai:admin',
 ] as const;
 
@@ -27,6 +28,7 @@ export const PERMISSION_LABELS: Record<Permission, { label: string; description:
   'departments:manage': { label: 'Manage Departments',  description: 'Create, edit, and delete departments' },
   'reports:view':       { label: 'View Reports',        description: 'Access the reports and analytics dashboard' },
   'meetings:manage':    { label: 'Manage Meetings',      description: 'Create, edit, and delete meeting minutes' },
+  'surveys:manage':     { label: 'Manage Surveys',       description: 'Create, edit, and delete surveys and view responses' },
   'ai:admin':           { label: 'AI Assistant',        description: 'Access the admin AI chat assistant' },
 };
 
