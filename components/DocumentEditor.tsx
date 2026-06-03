@@ -798,7 +798,11 @@ export function DocumentEditor({
                   Snapshot this saved content so it can be viewed or restored later.
                 </p>
               </div>
-              <Switch checked={createVersion} onCheckedChange={setCreateVersion} />
+              <Switch
+                checked={createVersion}
+                onCheckedChange={setCreateVersion}
+                className="data-[state=unchecked]:bg-zinc-300 data-[state=unchecked]:border-zinc-400 dark:data-[state=unchecked]:bg-zinc-600"
+              />
             </div>
 
             {createVersion && (

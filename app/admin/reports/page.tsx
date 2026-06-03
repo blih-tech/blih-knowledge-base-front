@@ -475,7 +475,8 @@ export default function AdminReportsPage() {
   const { user } = useAuth();
   const [view, setView] = useState<View>("list");
   const [selectedReport, setSelectedReport] = useState<TaskReport | null>(null);
-  const { createTaskReport, updateTaskReport, deleteTaskReport } = useReportMutations();
+  const { createTaskReport, updateTaskReport, deleteTaskReport } =
+    useReportMutations();
 
   // Filters
   const [filterPeriod, setFilterPeriod] = useState<PeriodType | "">("");
@@ -512,7 +513,10 @@ export default function AdminReportsPage() {
 
   const handleUpdate = async (data: CreateTaskReportData) => {
     if (!selectedReport) return;
-    const updated = await updateTaskReport.mutateAsync({ id: selectedReport._id, data });
+    const updated = await updateTaskReport.mutateAsync({
+      id: selectedReport._id,
+      data,
+    });
     setSelectedReport(updated);
     setView("detail");
     invalidateReports();
@@ -577,10 +581,10 @@ export default function AdminReportsPage() {
             <div className="p-1.5 rounded-lg bg-teal-50">
               <BarChart3 className="w-5 h-5 text-teal-600" />
             </div>
-            Task Reports
+            Reports
           </h1>
           <p className="text-sm text-muted-foreground">
-            Department task reports — weekly, monthly, and quarterly
+            Department reports — weekly, monthly, and quarterly
           </p>
         </div>
         <Button
@@ -784,7 +788,7 @@ export default function AdminReportsPage() {
           <p className="text-xs text-muted-foreground mt-1 max-w-[240px] mx-auto">
             {hasFilters
               ? "Try adjusting your filters to find reports."
-              : "Create your first task report to get started."}
+              : "Create your first  report to get started."}
           </p>
           {!hasFilters && (
             <Button

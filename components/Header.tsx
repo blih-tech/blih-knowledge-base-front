@@ -9,6 +9,7 @@ import { useState, useRef, useEffect } from 'react';
 
 const NAV_LINKS = [
   { label: 'Home', href: '/' },
+  { label: 'Reports', href: '/reports' },
   { label: 'FAQ', href: '/faq' },
   { label: 'Ask AI', href: '/ask-ai' },
 ];

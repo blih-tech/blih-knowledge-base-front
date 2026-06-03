@@ -97,3 +97,12 @@ export const updateTaskReport = (
 
 export const deleteTaskReport = (id: string): Promise<void> =>
   apiAxios.delete(`/reports/task-reports/${id}`).then(() => undefined);
+
+// ─── Public (any authenticated user) ─────────────────────────────────────────
+
+export const listPublicTaskReports = (
+  filters?: Pick<TaskReportFilters, "page" | "limit" | "periodType" | "department" | "sortBy" | "sortOrder">
+): Promise<TaskReportListResponse> =>
+  apiAxios
+    .get("/reports/task-reports/public", { params: filters })
+    .then((r) => r.data.data);
