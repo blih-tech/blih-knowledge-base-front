@@ -24,7 +24,7 @@ export interface Employee {
   updatedAt: string;
 }
 
-export const listEmployees = (params?: { search?: string; department?: string; isActive?: boolean }): Promise<Employee[]> =>
+export const listEmployees = (params?: { search?: string; department?: string; isActive?: boolean; role?: string }): Promise<Employee[]> =>
   apiAxios.get("/users", { params }).then((r) => r.data.data);
 
 export const getEmployee = (id: string): Promise<Employee> =>

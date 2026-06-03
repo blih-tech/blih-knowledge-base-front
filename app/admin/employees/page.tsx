@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   listEmployees, createEmployee, updateEmployee, assignClients,
   deactivateEmployee, resetPassword, setEmployeeRole, updatePermissions,
@@ -16,8 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus, Search, Edit2, Trash2, Save, X, Loader2,
-  Users, AlertCircle, Building2, Briefcase, CheckCircle2,
-  XCircle, UserCheck, Mail, ChevronDown, ChevronUp,
+  Users, AlertCircle, Building2, CheckCircle2,
+  XCircle, UserCheck,
   KeyRound, ShieldCheck, ShieldOff, Lock,
 } from "lucide-react";
 
@@ -489,9 +490,9 @@ function ResetPasswordModal({
   );
 }
 
-// ─── Employee Card ────────────────────────────────────────────────────────────
+// ─── Employee Table Row ───────────────────────────────────────────────────────
 
-function EmployeeCard({
+function EmployeeRow({
   employee, allClients, allDepartments,
   onUpdated, onDeactivated,
 }: {
@@ -504,7 +505,6 @@ function EmployeeCard({
   const [showAssign, setShowAssign] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showResetPw, setShowResetPw] = useState(false);
-  const [showClients, setShowClients] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [isTogglingRole, setIsTogglingRole] = useState(false);
 
@@ -523,7 +523,6 @@ function EmployeeCard({
     try {
       const updated = await setEmployeeRole(employee._id, newRole);
       onUpdated(updated);
-      // When promoting to admin, immediately open assign-clients so their scope is set
       if (newRole === "admin") {
         setTimeout(() => setShowAssign(true), 100);
       }
@@ -533,137 +532,149 @@ function EmployeeCard({
   };
 
   const isAdmin = employee.role === "admin";
-  const isProtected = employee.isSuperAdmin === true; // cannot be edited via UI
+  const isProtected = employee.isSuperAdmin === true;
 
   return (
     <>
-      <Card className={`p-4 ${!employee.isActive ? "opacity-60" : ""}`}>
-        <div className="flex items-start gap-3">
-          <Avatar name={employee.name} />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <p className="font-medium text-sm text-foreground">{employee.name}</p>
-                  {isProtected && (
-                    <span className="inline-flex items-center gap-0.5 text-xs text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-1.5 py-0.5">
-                      <ShieldCheck className="w-2.5 h-2.5" /> System Admin
-                    </span>
-                  )}
-                  {!isProtected && employee.isActive ? (
-                    <span className="inline-flex items-center gap-0.5 text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5">
-                      <CheckCircle2 className="w-2.5 h-2.5" /> Active
-                    </span>
-                  ) : !isProtected ? (
-                    <span className="inline-flex items-center gap-0.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-1.5 py-0.5">
-                      <XCircle className="w-2.5 h-2.5" /> Inactive
-                    </span>
-                  ) : null}
-                </div>
-                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                  <Mail className="w-3 h-3" />{employee.email}
-                </p>
-                {(employee.department?.name || employee.position) && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Briefcase className="w-3 h-3" />
-                    {[employee.position, employee.department?.name].filter(Boolean).join(" · ")}
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-1 shrink-0">
-                {isProtected ? (
-                  // Super admin accounts are read-only — no actions available
-                  <span className="text-xs text-muted-foreground italic px-2">Protected</span>
-                ) : (
-                  <>
-                    {/* Edit */}
-                    <Button
-                      variant="outline" size="sm"
-                      className="h-7 text-xs gap-1"
-                      onClick={() => setShowEdit(true)}
-                      title="Edit employee"
-                    >
-                      <Edit2 className="w-3 h-3" /> Edit
-                    </Button>
-                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowAssign(true)}>
-                      <UserCheck className="w-3 h-3" /> Assign
-                    </Button>
-                    {/* Reset password */}
-                    <Button
-                      variant="outline" size="sm"
-                      className="h-7 text-xs gap-1"
-                      onClick={() => setShowResetPw(true)}
-                      title="Reset password"
-                    >
-                      <KeyRound className="w-3 h-3" />
-                    </Button>
-                    {/* Grant / Revoke admin */}
-                    <Button
-                      variant="outline" size="sm"
-                      className={`h-7 text-xs gap-1 ${
-                        isAdmin ? "text-amber-600 border-amber-300 hover:bg-amber-50" : "text-emerald-600 border-emerald-300 hover:bg-emerald-50"
-                      }`}
-                      onClick={handleToggleRole}
-                      disabled={isTogglingRole}
-                      title={isAdmin ? "Revoke admin access" : "Grant admin access"}
-                    >
-                      {isTogglingRole
-                        ? <Loader2 className="w-3 h-3 animate-spin" />
-                        : isAdmin ? <ShieldOff className="w-3 h-3" /> : <ShieldCheck className="w-3 h-3" />}
-                    </Button>
-                    {employee.isActive && (
-                      <Button variant="ghost" size="icon-sm" onClick={handleDeactivate} disabled={isDeactivating}
-                        className="text-muted-foreground hover:text-red-600 hover:bg-red-50">
-                        {isDeactivating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                      </Button>
-                    )}
-                  </>
-                )}
-              </div>
+      <tr className={`border-b border-border hover:bg-secondary/30 transition-colors ${!employee.isActive ? "opacity-50" : ""}`}>
+        {/* Name & Email */}
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Avatar name={employee.name} />
+            <div className="min-w-0">
+              <p className="font-medium text-sm text-foreground truncate">{employee.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{employee.email}</p>
             </div>
+          </div>
+        </td>
 
-            {/* Assigned clients summary */}
-            <button
-              onClick={() => setShowClients((s) => !s)}
-              className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Building2 className="w-3 h-3" />
-              {employee.assignedClients.length} client{employee.assignedClients.length !== 1 ? "s" : ""} assigned
-              {employee.assignedClients.length > 0 && (showClients ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
-            </button>
-
-            {showClients && employee.assignedClients.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {employee.assignedClients.map((c) => (
-                  <Badge key={c._id} variant="secondary" className="text-xs">{c.name}</Badge>
-                ))}
-              </div>
+        {/* Department & Position */}
+        <td className="px-4 py-3">
+          <div className="min-w-0">
+            {employee.department?.name ? (
+              <p className="text-sm text-foreground truncate">{employee.department.name}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground italic">—</p>
+            )}
+            {employee.position && (
+              <p className="text-xs text-muted-foreground truncate">{employee.position}</p>
             )}
           </div>
-        </div>
-      </Card>
+        </td>
 
-      {showEdit && (
+        {/* Assigned Clients */}
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-1.5">
+            <Building2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <span className="text-sm text-muted-foreground">
+              {employee.assignedClients.length}
+            </span>
+          </div>
+        </td>
+
+        {/* Role */}
+        <td className="px-4 py-3">
+          {isProtected ? (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-full px-2 py-0.5">
+              <ShieldCheck className="w-3 h-3" /> Super Admin
+            </span>
+          ) : isAdmin ? (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">
+              <ShieldCheck className="w-3 h-3" /> Admin
+            </span>
+          ) : (
+            <span className="text-xs font-medium text-muted-foreground bg-secondary rounded-full px-2 py-0.5">
+              User
+            </span>
+          )}
+        </td>
+
+        {/* Status */}
+        <td className="px-4 py-3">
+          {employee.isActive ? (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
+              <CheckCircle2 className="w-3 h-3" /> Active
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5">
+              <XCircle className="w-3 h-3" /> Inactive
+            </span>
+          )}
+        </td>
+
+        {/* Actions */}
+        <td className="px-4 py-3">
+          {isProtected ? (
+            <span className="text-xs text-muted-foreground italic">Protected</span>
+          ) : (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline" size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setShowEdit(true)}
+                title="Edit employee"
+              >
+                <Edit2 className="w-3 h-3" /> Edit
+              </Button>
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setShowAssign(true)} title="Assign clients">
+                <UserCheck className="w-3 h-3" />
+              </Button>
+              <Button
+                variant="outline" size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setShowResetPw(true)}
+                title="Reset password"
+              >
+                <KeyRound className="w-3 h-3" />
+              </Button>
+              <Button
+                variant="outline" size="sm"
+                className={`h-7 text-xs gap-1 ${
+                  isAdmin ? "text-amber-600 border-amber-300 hover:bg-amber-50" : "text-emerald-600 border-emerald-300 hover:bg-emerald-50"
+                }`}
+                onClick={handleToggleRole}
+                disabled={isTogglingRole}
+                title={isAdmin ? "Revoke admin access" : "Grant admin access"}
+              >
+                {isTogglingRole
+                  ? <Loader2 className="w-3 h-3 animate-spin" />
+                  : isAdmin ? <ShieldOff className="w-3 h-3" /> : <ShieldCheck className="w-3 h-3" />}
+              </Button>
+              {employee.isActive && (
+                <Button variant="ghost" size="icon-sm" onClick={handleDeactivate} disabled={isDeactivating}
+                  className="text-muted-foreground hover:text-red-600 hover:bg-red-50">
+                  {isDeactivating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                </Button>
+              )}
+            </div>
+          )}
+        </td>
+      </tr>
+
+      {showEdit && createPortal(
         <EditEmployeeModal
           employee={employee}
           allDepartments={allDepartments}
           onClose={() => setShowEdit(false)}
           onSaved={(updated) => { onUpdated(updated); setShowEdit(false); }}
-        />
+        />,
+        document.body,
       )}
-      {showAssign && (
+      {showAssign && createPortal(
         <AssignClientsModal
           employee={employee}
           allClients={allClients}
           onClose={() => setShowAssign(false)}
           onSaved={(updated) => { onUpdated(updated); setShowAssign(false); }}
-        />
+        />,
+        document.body,
       )}
-      {showResetPw && (
+      {showResetPw && createPortal(
         <ResetPasswordModal
           employee={employee}
           onClose={() => setShowResetPw(false)}
-        />
+        />,
+        document.body,
       )}
     </>
   );
@@ -676,16 +687,20 @@ export default function AdminEmployeesPage() {
   const [allClients, setAllClients] = useState<Client[]>([]);
   const [allDepartments, setAllDepartments] = useState<Department[]>([]);
   const [search, setSearch] = useState("");
-  const [showInactive, setShowInactive] = useState(false);
+  const [filterDept, setFilterDept] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("active");
+  const [filterRole, setFilterRole] = useState<"all" | "admin" | "user">("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
-  const load = useCallback(async (q?: string) => {
+  const load = useCallback(async (params: {
+    search?: string; department?: string; isActive?: boolean; role?: string;
+  }) => {
     setIsLoading(true); setError(null);
     try {
       const [emps, clients, depts] = await Promise.all([
-        listEmployees({ search: q }),
+        listEmployees(params),
         listClients({ limit: 100 }),
         listDepartments({ isActive: true }),
       ]);
@@ -697,14 +712,22 @@ export default function AdminEmployeesPage() {
     } finally { setIsLoading(false); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Build query params from filter state
   useEffect(() => {
-    const t = setTimeout(() => load(search || undefined), 300);
-    return () => clearTimeout(t);
-  }, [search, load]);
+    const params: { search?: string; department?: string; isActive?: boolean; role?: string } = {};
+    if (search.trim()) params.search = search.trim();
+    if (filterDept) params.department = filterDept;
+    if (filterStatus !== "all") params.isActive = filterStatus === "active";
+    if (filterRole !== "all") params.role = filterRole;
 
-  const visible = showInactive ? employees : employees.filter((e) => e.isActive);
+    const t = setTimeout(() => load(params), 300);
+    return () => clearTimeout(t);
+  }, [search, filterDept, filterStatus, filterRole, load]);
+
   const active = employees.filter((e) => e.isActive).length;
+  const hasActiveFilters = filterDept !== "" || filterStatus !== "active" || filterRole !== "all";
+
+  const selectClass = "h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer";
 
   return (
     <div className="space-y-6">
@@ -717,7 +740,7 @@ export default function AdminEmployeesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="secondary">{active} active</Badge>
+          <Badge variant="secondary">{employees.length} result{employees.length !== 1 ? "s" : ""}</Badge>
           <Button size="sm" onClick={() => setShowCreate(true)} className="gap-1.5">
             <Plus className="w-4 h-4" /> Add Employee
           </Button>
@@ -725,15 +748,56 @@ export default function AdminEmployeesPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-2">
-        <div className="relative flex-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name or email…" className="pl-9" />
         </div>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer px-2">
-          <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} className="rounded" />
-          Show inactive
-        </label>
+
+        {/* Department filter */}
+        <select
+          value={filterDept}
+          onChange={(e) => setFilterDept(e.target.value)}
+          className={selectClass}
+        >
+          <option value="">All Departments</option>
+          {allDepartments.map((d) => (
+            <option key={d._id} value={d._id}>{d.name}</option>
+          ))}
+        </select>
+
+        {/* Status filter */}
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value as "all" | "active" | "inactive")}
+          className={selectClass}
+        >
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+
+        {/* Role filter */}
+        <select
+          value={filterRole}
+          onChange={(e) => setFilterRole(e.target.value as "all" | "admin" | "user")}
+          className={selectClass}
+        >
+          <option value="all">All Roles</option>
+          <option value="admin">Admin</option>
+          <option value="user">User</option>
+        </select>
+
+        {/* Clear filters */}
+        {hasActiveFilters && (
+          <Button
+            variant="ghost" size="sm"
+            className="h-9 text-xs gap-1 text-muted-foreground hover:text-foreground"
+            onClick={() => { setFilterDept(""); setFilterStatus("active"); setFilterRole("all"); }}
+          >
+            <X className="w-3.5 h-3.5" /> Clear filters
+          </Button>
+        )}
       </div>
 
       {error && (
@@ -744,28 +808,44 @@ export default function AdminEmployeesPage() {
 
       {isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map((i) => <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />)}
+          {[1, 2, 3].map((i) => <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />)}
         </div>
-      ) : visible.length === 0 ? (
+      ) : employees.length === 0 ? (
         <Card className="p-12 text-center border-dashed">
           <Users className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">
-            {search ? "No employees match your search." : "No employees yet. Add your first team member."}
+            {search || hasActiveFilters ? "No employees match your filters." : "No employees yet. Add your first team member."}
           </p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {visible.map((emp) => (
-            <EmployeeCard
-              key={emp._id}
-              employee={emp}
-              allClients={allClients}
-              allDepartments={allDepartments}
-              onUpdated={(updated) => setEmployees((prev) => prev.map((e) => e._id === updated._id ? updated : e))}
-              onDeactivated={(id) => setEmployees((prev) => prev.map((e) => e._id === id ? { ...e, isActive: false } : e))}
-            />
-          ))}
-        </div>
+        <Card className="overflow-hidden border border-border">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-border bg-secondary/40">
+                  <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Employee</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Department</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Clients</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Role</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map((emp) => (
+                  <EmployeeRow
+                    key={emp._id}
+                    employee={emp}
+                    allClients={allClients}
+                    allDepartments={allDepartments}
+                    onUpdated={(updated) => setEmployees((prev) => prev.map((e) => e._id === updated._id ? updated : e))}
+                    onDeactivated={(id) => setEmployees((prev) => prev.map((e) => e._id === id ? { ...e, isActive: false } : e))}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
 
       {showCreate && (
