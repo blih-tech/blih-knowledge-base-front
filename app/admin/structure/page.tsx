@@ -270,11 +270,11 @@ function StructureManagementContent() {
                     ) : (
                       /* ── Normal name display ── */
                       <>
-                        <span className={`font-semibold text-sm truncate ${category.isActive !== false ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        <span className={`font-semibold text-sm truncate ${category.isActive === true ? 'text-foreground' : 'text-muted-foreground'}`}>
                           {category.name}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {category.isActive === false && (
+                          {category.isActive !== true && (
                             <Badge variant="outline" className="text-xs font-normal text-amber-600 border-amber-300 bg-amber-50">
                               Hidden
                             </Badge>
@@ -295,11 +295,11 @@ function StructureManagementContent() {
                     <div
                       className="flex items-center gap-1.5 mr-1"
                       onClick={(e) => e.stopPropagation()}
-                      title={category.isActive !== false ? "Visible on home page — click to hide" : "Hidden from home page — click to show"}
+                      title={category.isActive === true ? "Visible on home page — click to hide" : "Hidden from home page — click to show"}
                     >
                       <Switch
-                        checked={category.isActive !== false}
-                        onCheckedChange={() => handleToggleCategory(category.id, category.isActive !== false)}
+                        checked={category.isActive === true}
+                        onCheckedChange={() => handleToggleCategory(category.id, category.isActive === true)}
                         disabled={busyId === `toggle-cat-${category.id}`}
                         className="scale-90"
                       />
@@ -397,11 +397,11 @@ function StructureManagementContent() {
                               ) : (
                                 /* ── Normal name display ── */
                                 <>
-                                  <span className={`text-sm font-medium truncate ${section.isActive !== false ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                  <span className={`text-sm font-medium truncate ${section.isActive === true ? 'text-foreground' : 'text-muted-foreground'}`}>
                                     {section.name}
                                   </span>
                                   <div className="flex items-center gap-1 shrink-0">
-                                    {section.isActive === false && (
+                                    {section.isActive !== true && (
                                       <Badge variant="outline" className="text-[10px] font-normal text-amber-600 border-amber-300 bg-amber-50 px-1.5 py-0">
                                         Hidden
                                       </Badge>
@@ -418,11 +418,11 @@ function StructureManagementContent() {
                               <div
                                 className="flex items-center gap-1 mr-0.5"
                                 onClick={(e) => e.stopPropagation()}
-                                title={section.isActive !== false ? "Visible on home page — click to hide" : "Hidden from home page — click to show"}
+                                title={section.isActive === true ? "Visible on home page — click to hide" : "Hidden from home page — click to show"}
                               >
                                 <Switch
-                                  checked={section.isActive !== false}
-                                  onCheckedChange={() => handleToggleSection(section.id, section.isActive !== false)}
+                                  checked={section.isActive === true}
+                                  onCheckedChange={() => handleToggleSection(section.id, section.isActive === true)}
                                   disabled={busyId === `toggle-sec-${section.id}`}
                                   className="scale-[0.8]"
                                 />

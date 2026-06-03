@@ -12,6 +12,7 @@ interface BackendLoginResponse {
       email: string;
       role: string;
       isSuperAdmin: boolean;
+      isDepartmentHead: boolean;
       permissions: string[];
     };
     tokens: {
@@ -36,6 +37,7 @@ interface BackendMeResponse {
   data: {
     role: string;
     isSuperAdmin: boolean;
+    isDepartmentHead: boolean;
     permissions: string[];
     name: string;
     email: string;
@@ -106,6 +108,7 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             role: user.role,
             isSuperAdmin: user.isSuperAdmin,
+            isDepartmentHead: user.isDepartmentHead ?? false,
             permissions: user.permissions ?? [],
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken,
@@ -135,6 +138,7 @@ export const authOptions: NextAuthOptions = {
         t.email = user.email ?? "";
         t.role = user.role;
         t.isSuperAdmin = user.isSuperAdmin;
+        t.isDepartmentHead = user.isDepartmentHead ?? false;
         t.permissions = user.permissions ?? [];
         t.accessToken = user.accessToken;
         t.refreshToken = user.refreshToken;
@@ -161,6 +165,7 @@ export const authOptions: NextAuthOptions = {
         if (fresh) {
           t.role = fresh.role;
           t.isSuperAdmin = fresh.isSuperAdmin;
+          t.isDepartmentHead = fresh.isDepartmentHead ?? t.isDepartmentHead;
           t.permissions = fresh.permissions ?? [];
         }
 
@@ -178,6 +183,7 @@ export const authOptions: NextAuthOptions = {
         session.user.email = t.email;
         session.user.role = t.role;
         session.user.isSuperAdmin = t.isSuperAdmin;
+        session.user.isDepartmentHead = t.isDepartmentHead ?? false;
         session.user.permissions = t.permissions ?? [];
       }
       session.accessToken = t.accessToken;

@@ -6,6 +6,7 @@ declare module "next-auth" {
       id: string;
       role: string;
       isSuperAdmin: boolean;
+      isDepartmentHead: boolean;
       permissions: string[];
     } & DefaultSession["user"];
     accessToken?: string;
@@ -18,6 +19,7 @@ declare module "next-auth" {
     email?: string | null;
     role: string;
     isSuperAdmin: boolean;
+    isDepartmentHead: boolean;
     permissions: string[];
     accessToken: string;
     refreshToken: string;
@@ -32,6 +34,7 @@ declare module "next-auth/jwt" {
     email: string;
     role: string;
     isSuperAdmin: boolean;
+    isDepartmentHead: boolean;
     permissions: string[];
     accessToken: string;
     refreshToken: string;

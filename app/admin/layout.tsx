@@ -210,21 +210,56 @@ function AIFloatingButton() {
   );
 }
 
+// ─── Access Denied UI ─────────────────────────────────────────────────────────
+
+function AccessDenied() {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 px-6 animate-in fade-in duration-300">
+      <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-5">
+        <ShieldCheck className="w-8 h-8 text-red-400" />
+      </div>
+      <h2 className="text-xl font-bold text-foreground">Access Denied</h2>
+      <p className="text-sm text-muted-foreground mt-2 text-center max-w-sm">
+        You don&apos;t have permission to access this page. Contact your administrator if you believe this is a mistake.
+      </p>
+      <Link
+        href="/admin/dashboard"
+        className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+      >
+        <LayoutDashboard className="w-4 h-4" />
+        Go to Dashboard
+      </Link>
+    </div>
+  );
+}
+
+// ─── Route → Permission resolver ──────────────────────────────────────────────
+
+function getRequiredPermission(pathname: string): Permission | null {
+  for (const item of navItems) {
+    if (pathname === item.href || pathname.startsWith(item.href + "/")) {
+      return item.permission ?? null;
+    }
+  }
+  return null; // no match = no restriction (dashboard, profile, etc.)
+}
+
 // ─── Guard + shell ────────────────────────────────────────────────────────────
 
 function AdminShell({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, isAdmin, isLoading } = useAuth();
+  const { user, isAuthenticated, canAccessAdmin, isLoading, hasPermission } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) {
       router.replace("/auth/login");
-    } else if (!isAdmin) {
-      // Logged in but not admin → send to knowledge base
+    } else if (!canAccessAdmin) {
+      // Logged in but not admin/superAdmin/deptHead → send to knowledge base
       router.replace("/");
     }
-  }, [isLoading, isAuthenticated, isAdmin, router]);
+  }, [isLoading, isAuthenticated, canAccessAdmin, router]);
 
   if (isLoading) {
     return (
@@ -234,8 +269,11 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated || !isAdmin) return null;
+  if (!isAuthenticated || !canAccessAdmin) return null;
 
+  // Check if user has permission for the current page
+  const requiredPermission = getRequiredPermission(pathname);
+  const hasAccess = !requiredPermission || hasPermission(requiredPermission);
 
   return (
     <SidebarProvider>
@@ -257,7 +295,9 @@ function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <main className="flex-1 overflow-auto p-6">
-          <div className="max-w-5xl mx-auto w-full">{children}</div>
+          <div className="max-w-5xl mx-auto w-full">
+            {hasAccess ? children : <AccessDenied />}
+          </div>
         </main>
       </SidebarInset>
 

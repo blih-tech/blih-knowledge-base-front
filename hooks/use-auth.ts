@@ -7,11 +7,16 @@ export function useAuth() {
   const { data: session, status } = useSession();
   const user = session?.user ?? null;
   const isSuperAdmin = user?.isSuperAdmin === true;
+  const isDepartmentHead = user?.isDepartmentHead === true;
 
   const hasPermission = (permission: Permission): boolean => {
     if (isSuperAdmin) return true; // super admins bypass all checks
     return (user?.permissions ?? []).includes(permission);
   };
+
+  /** Whether the user can access the admin dashboard */
+  const canAccessAdmin =
+    user?.role === "admin" || isSuperAdmin || isDepartmentHead;
 
   return {
     user,
@@ -19,6 +24,8 @@ export function useAuth() {
     isLoading: status === "loading",
     isAdmin: user?.role === "admin",
     isSuperAdmin,
+    isDepartmentHead,
+    canAccessAdmin,
     permissions: user?.permissions ?? [],
     hasPermission,
   };

@@ -371,6 +371,7 @@ export default function AdminReportsPage() {
   const [filterPeriod, setFilterPeriod] = useState<PeriodType | "">("");
   const [filterDept, setFilterDept] = useState("");
   const [filterStatus, setFilterStatus] = useState<ReportStatus | "">("");
+  const [myReportsOnly, setMyReportsOnly] = useState(false);
 
   const loadReports = useCallback(async () => {
     setIsLoading(true);
@@ -380,6 +381,7 @@ export default function AdminReportsPage() {
       if (filterPeriod) filters.periodType = filterPeriod;
       if (filterDept) filters.department = filterDept;
       if (filterStatus) filters.status = filterStatus;
+      if (myReportsOnly && user?.id) filters.author = user.id;
 
       const [data, depts] = await Promise.all([
         listTaskReports(filters),
@@ -394,7 +396,7 @@ export default function AdminReportsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, filterPeriod, filterDept, filterStatus, departments.length]);
+  }, [page, filterPeriod, filterDept, filterStatus, myReportsOnly, user?.id, departments.length]);
 
   useEffect(() => { loadReports(); }, [loadReports]);
 
@@ -425,7 +427,7 @@ export default function AdminReportsPage() {
   const canModify = (report: TaskReport) =>
     user?.id === report.author?._id || user?.isSuperAdmin;
 
-  const hasFilters = filterPeriod || filterDept || filterStatus;
+  const hasFilters = filterPeriod || filterDept || filterStatus || myReportsOnly;
 
   // ── Detail View ──
   if (view === "detail" && selectedReport) {
@@ -477,10 +479,34 @@ export default function AdminReportsPage() {
         </Button>
       </div>
 
+      {/* ── View tabs ── */}
+      <div className="flex items-center gap-1 p-1 bg-secondary rounded-lg w-fit">
+        <button
+          onClick={() => { setMyReportsOnly(false); setPage(1); }}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+            !myReportsOnly
+              ? "bg-white text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          All Reports
+        </button>
+        <button
+          onClick={() => { setMyReportsOnly(true); setPage(1); }}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
+            myReportsOnly
+              ? "bg-white text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <User className="w-3.5 h-3.5" /> My Reports
+        </button>
+      </div>
+
       {/* ── Summary strip ── */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="px-4 py-3 border flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-secondary">
+        <Card className="px-4 py-3 border flex flex-row items-center gap-3">
+          <div className="p-2 rounded-lg bg-secondary shrink-0">
             <FileText className="w-4 h-4 text-muted-foreground" />
           </div>
           <div>
@@ -488,8 +514,8 @@ export default function AdminReportsPage() {
             <p className="text-[11px] text-muted-foreground mt-0.5">Total Reports</p>
           </div>
         </Card>
-        <Card className="px-4 py-3 border flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gray-100">
+        <Card className="px-4 py-3 border flex flex-row items-center gap-3">
+          <div className="p-2 rounded-lg bg-gray-100 shrink-0">
             <Edit3 className="w-4 h-4 text-gray-500" />
           </div>
           <div>
@@ -497,8 +523,8 @@ export default function AdminReportsPage() {
             <p className="text-[11px] text-muted-foreground mt-0.5">Drafts</p>
           </div>
         </Card>
-        <Card className="px-4 py-3 border flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-emerald-50">
+        <Card className="px-4 py-3 border flex flex-row items-center gap-3">
+          <div className="p-2 rounded-lg bg-emerald-50 shrink-0">
             <Send className="w-4 h-4 text-emerald-600" />
           </div>
           <div>
@@ -534,7 +560,7 @@ export default function AdminReportsPage() {
               variant="ghost"
               size="sm"
               className="h-7 text-xs gap-1 text-muted-foreground hover:text-red-600"
-              onClick={() => { setFilterPeriod(""); setFilterDept(""); setFilterStatus(""); setPage(1); }}
+              onClick={() => { setFilterPeriod(""); setFilterDept(""); setFilterStatus(""); setMyReportsOnly(false); setPage(1); }}
             >
               <X className="w-3 h-3" /> Clear filters
             </Button>
