@@ -7,10 +7,9 @@ export const metadata = {
 
 export default function AskAiPage() {
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-background overflow-hidden">
-      {/* Full-height chat below header */}
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-gradient-to-b from-background to-secondary/20 overflow-hidden">
       <div className="flex-1 min-h-0">
-        <div className="h-full max-w-3xl mx-auto w-full">
+        <div className="h-full w-full">
           <ChatInterface />
         </div>
       </div>
