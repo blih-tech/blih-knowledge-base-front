@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   listDepartments,
   createDepartment,
@@ -9,6 +10,7 @@ import {
   type Department,
 } from "@/lib/api/departments.api";
 import { listEmployees, type Employee } from "@/lib/api/employees.api";
+import { queryKeys } from "@/lib/query-keys";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +31,7 @@ import {
   XCircle,
 } from "lucide-react";
 
-// ─── Create/Edit Department Modal ─────────────────────────────────────────────
+// â”€â”€â”€ Create/Edit Department Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function DepartmentModal({
   department,
@@ -120,7 +122,7 @@ function DepartmentModal({
                 .filter((e) => e.isActive)
                 .map((emp) => (
                   <option key={emp._id} value={emp._id}>
-                    {emp.name} — {emp.position || emp.role}
+                    {emp.name} â€” {emp.position || emp.role}
                   </option>
                 ))}
             </select>
@@ -157,18 +159,16 @@ function DepartmentModal({
   );
 }
 
-// ─── Department Card ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Department Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function DepartmentCard({
   department,
   allEmployees,
-  onUpdated,
-  onDeleted,
+  onRefresh,
 }: {
   department: Department;
   allEmployees: Employee[];
-  onUpdated: (d: Department) => void;
-  onDeleted: (id: string) => void;
+  onRefresh: () => void;
 }) {
   const [showEdit, setShowEdit] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -183,7 +183,7 @@ function DepartmentCard({
     setIsDeleting(true);
     try {
       await deleteDepartment(department._id);
-      onDeleted(department._id);
+      onRefresh();
     } finally {
       setIsDeleting(false);
     }
@@ -269,8 +269,8 @@ function DepartmentCard({
           department={department}
           allEmployees={allEmployees}
           onClose={() => setShowEdit(false)}
-          onSaved={(updated) => {
-            onUpdated(updated);
+          onSaved={() => {
+            onRefresh();
             setShowEdit(false);
           }}
         />
@@ -279,47 +279,38 @@ function DepartmentCard({
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function AdminDepartmentsPage() {
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
-  const load = useCallback(async (q?: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [depts, emps] = await Promise.all([
-        listDepartments({ search: q }),
-        listEmployees(),
-      ]);
-      setDepartments(depts);
-      setAllEmployees(emps);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load departments");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  // â”€â”€ Queries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const {
+    data: departments = [],
+    isLoading,
+    error: deptError,
+  } = useQuery({
+    queryKey: queryKeys.departments.list({ search: search || undefined }),
+    queryFn: () => listDepartments({ search: search || undefined }),
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const { data: allEmployees = [] } = useQuery({
+    queryKey: queryKeys.employees.list({}),
+    queryFn: () => listEmployees(),
+  });
 
-  useEffect(() => {
-    const t = setTimeout(() => load(search || undefined), 300);
-    return () => clearTimeout(t);
-  }, [search, load]);
+  const invalidateDepts = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
 
+  // â”€â”€ Derived state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const visible = showInactive
     ? departments
     : departments.filter((d) => d.isActive);
   const active = departments.filter((d) => d.isActive).length;
+  const error = deptError instanceof Error ? deptError.message : deptError ? String(deptError) : null;
 
   return (
     <div className="space-y-6">
@@ -348,7 +339,7 @@ export default function AdminDepartmentsPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search departments…"
+            placeholder="Search departmentsâ€¦"
             className="pl-9"
           />
         </div>
@@ -392,16 +383,7 @@ export default function AdminDepartmentsPage() {
               key={dept._id}
               department={dept}
               allEmployees={allEmployees}
-              onUpdated={(updated) =>
-                setDepartments((prev) =>
-                  prev.map((d) => (d._id === updated._id ? { ...updated, employeeCount: d.employeeCount } : d))
-                )
-              }
-              onDeleted={(id) =>
-                setDepartments((prev) =>
-                  prev.map((d) => (d._id === id ? { ...d, isActive: false } : d))
-                )
-              }
+              onRefresh={invalidateDepts}
             />
           ))}
         </div>
@@ -411,8 +393,8 @@ export default function AdminDepartmentsPage() {
         <DepartmentModal
           allEmployees={allEmployees}
           onClose={() => setShowCreate(false)}
-          onSaved={(dept) => {
-            setDepartments((prev) => [{ ...dept, employeeCount: 0 }, ...prev]);
+          onSaved={() => {
+            invalidateDepts();
             setShowCreate(false);
           }}
         />

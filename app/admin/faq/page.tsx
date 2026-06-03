@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   adminGetAllFaqs,
   adminCreateFaq,
@@ -8,6 +9,7 @@ import {
   adminDeleteFaq,
   type Faq,
 } from "@/lib/api/faq.api";
+import { queryKeys } from "@/lib/query-keys";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,28 +95,27 @@ function FaqForm({
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AdminFaqPage() {
-  const [faqs, setFaqs] = useState<Faq[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // ─── Load ──────────────────────────────────────────────────────────────────
+  // ── Query ───────────────────────────────────────────────────────────────
+  const {
+    data: faqs = [],
+    isLoading,
+    error: queryError,
+  } = useQuery({
+    queryKey: queryKeys.faq.list({}),
+    queryFn: () => adminGetAllFaqs(),
+  });
 
-  const reload = async () => {
-    try {
-      setIsLoading(true);
-      const data = await adminGetAllFaqs();
-      setFaqs(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load FAQs");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.faq.all });
 
-  useEffect(() => { reload(); }, []);
+  const displayError =
+    error ?? (queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null);
 
   // ─── CRUD helpers ──────────────────────────────────────────────────────────
 
@@ -124,7 +125,7 @@ export default function AdminFaqPage() {
     try {
       await adminCreateFaq({ question, answer, order });
       setShowAddForm(false);
-      await reload();
+      invalidate();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create FAQ");
     } finally {
@@ -138,7 +139,7 @@ export default function AdminFaqPage() {
     try {
       await adminUpdateFaq(id, { question, answer, order });
       setEditingId(null);
-      await reload();
+      invalidate();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update FAQ");
     } finally {
@@ -152,7 +153,7 @@ export default function AdminFaqPage() {
     setError(null);
     try {
       await adminDeleteFaq(id);
-      await reload();
+      invalidate();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete FAQ");
     } finally {
@@ -184,10 +185,10 @@ export default function AdminFaqPage() {
       </div>
 
       {/* Error */}
-      {error && (
+      {displayError && (
         <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>{error}</span>
+          <span>{displayError}</span>
         </div>
       )}
 

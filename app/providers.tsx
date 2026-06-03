@@ -1,6 +1,7 @@
 "use client";
 
 import { SessionProvider } from "next-auth/react";
+import { QueryProvider } from "@/lib/query-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -8,7 +9,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       refetchOnWindowFocus  // re-fetch when user switches back to tab
       refetchInterval={5 * 60} // also re-fetch every 5 minutes
     >
-      {children}
+      <QueryProvider>
+        {children}
+      </QueryProvider>
     </SessionProvider>
   );
 }
