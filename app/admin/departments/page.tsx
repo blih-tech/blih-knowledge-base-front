@@ -1,16 +1,15 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  listDepartments,
   createDepartment,
   updateDepartment,
   deleteDepartment,
   type Department,
+  type DepartmentDetail,
 } from "@/lib/api/departments.api";
-import { listEmployees, type Employee } from "@/lib/api/employees.api";
-import { queryKeys } from "@/lib/query-keys";
+import type { Employee } from "@/lib/api/employees.api";
+import { useDepartments, useEmployees } from "@/hooks/queries";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +30,8 @@ import {
   XCircle,
 } from "lucide-react";
 
-// â”€â”€â”€ Create/Edit Department Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// —————————————————————————————————————————————————————————————————————————————
+// ——— Create/Edit Department Modal ———————————————————————————————————————————
 
 function DepartmentModal({
   department,
@@ -122,7 +122,7 @@ function DepartmentModal({
                 .filter((e) => e.isActive)
                 .map((emp) => (
                   <option key={emp._id} value={emp._id}>
-                    {emp.name} â€” {emp.position || emp.role}
+                    {emp.name} — {emp.position || emp.role}
                   </option>
                 ))}
             </select>
@@ -159,7 +159,8 @@ function DepartmentModal({
   );
 }
 
-// â”€â”€â”€ Department Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// —————————————————————————————————————————————————————————————————————————————
+// ——— Department Card —————————————————————————————————————————————————————————
 
 function DepartmentCard({
   department,
@@ -279,33 +280,25 @@ function DepartmentCard({
   );
 }
 
-// â”€â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// —————————————————————————————————————————————————————————————————————————————
+// ——— Main Page ———————————————————————————————————————————————————————————————
 
 export default function AdminDepartmentsPage() {
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
 
-  // â”€â”€ Queries â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Queries ──────────────────────────────────────────────────────────────
   const {
-    data: departments = [],
+    departments = [],
     isLoading,
     error: deptError,
-  } = useQuery({
-    queryKey: queryKeys.departments.list({ search: search || undefined }),
-    queryFn: () => listDepartments({ search: search || undefined }),
-  });
+    invalidate: invalidateDepts,
+  } = useDepartments({ search: search || undefined });
 
-  const { data: allEmployees = [] } = useQuery({
-    queryKey: queryKeys.employees.list({}),
-    queryFn: () => listEmployees(),
-  });
+  const { employees: allEmployees = [] } = useEmployees({});
 
-  const invalidateDepts = () =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
-
-  // â”€â”€ Derived state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ——— Derived state ——————————————————————————————————————————————————————————
   const visible = showInactive
     ? departments
     : departments.filter((d) => d.isActive);

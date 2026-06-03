@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  listClients, createClient, deleteClient,
+  createClient, deleteClient,
   type Client, type ClientStatus, type ClientTier,
 } from "@/lib/api/clients.api";
-import { queryKeys } from "@/lib/query-keys";
+import { useClients } from "@/hooks/queries";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -135,7 +134,6 @@ function CreateClientModal({ onClose, onCreate }: { onClose: () => void; onCreat
 
 export default function AdminClientsPage() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "">("");
   const [showCreate, setShowCreate] = useState(false);
@@ -153,16 +151,11 @@ export default function AdminClientsPage() {
     data,
     isLoading,
     error: queryError,
-  } = useQuery({
-    queryKey: queryKeys.clients.list(clientParams as Record<string, unknown>),
-    queryFn: () => listClients(clientParams),
-  });
-
-  const invalidateClients = () =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.clients.all });
+    invalidate: invalidateClients,
+  } = useClients(clientParams);
 
   const error =
-    mutationError ?? (queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null);
+    mutationError ?? queryError;
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}" and all their data? This cannot be undone.`)) return;

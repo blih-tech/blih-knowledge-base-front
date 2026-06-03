@@ -5,9 +5,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
 import { useDocumentTree } from "@/hooks/use-document-tree";
 import { useAuth } from "@/hooks/use-auth";
+import { useEmployees } from "@/hooks/queries";
 import { queryKeys } from "@/lib/query-keys";
 import { adminGetDocumentById, type FullDocument } from "@/lib/api/documents.api";
-import { listEmployees, type Employee } from "@/lib/api/employees.api";
+import type { Employee } from "@/lib/api/employees.api";
 import { RichTextEditor } from "./RichTextEditor";
 import { UserChip } from "@/components/UserChip";
 import { VersionHistory } from "@/components/VersionHistory";
@@ -128,11 +129,8 @@ export function DocumentEditor({
     }
   };
 
-  // ── Fetch active users for owner dropdown via React Query ──────────────────
-  const { data: users = [] } = useQuery<Employee[]>({
-    queryKey: queryKeys.employees.list({ isActive: true }),
-    queryFn: () => listEmployees({ isActive: true }),
-  });
+  // ── Fetch active users for owner dropdown ───────────────────────────────
+  const { employees: users } = useEmployees({ isActive: true });
 
   const validate = () => {
     const e: Record<string, string> = {};

@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { createPortal } from "react-dom";
 import {
-  listEmployees, createEmployee, updateEmployee, assignClients,
+  createEmployee, updateEmployee, assignClients,
   deactivateEmployee, resetPassword, setEmployeeRole, updatePermissions,
   type Employee,
 } from "@/lib/api/employees.api";
 import { listClients, type Client } from "@/lib/api/clients.api";
-import { listDepartments, type Department } from "@/lib/api/departments.api";
+import type { Department } from "@/lib/api/departments.api";
+import { useEmployees } from "@/hooks/queries";
+import { useDepartments } from "@/hooks/queries";
 import { PERMISSIONS, PERMISSION_LABELS } from "@/lib/permissions";
 import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
@@ -684,7 +686,6 @@ function EmployeeRow({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AdminEmployeesPage() {
-  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterDept, setFilterDept] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("active");
@@ -692,36 +693,21 @@ export default function AdminEmployeesPage() {
   const [showCreate, setShowCreate] = useState(false);
 
   // ── Build query params from filter state ─────────────────────────────────
-  const empParams: Record<string, unknown> = {};
-  if (search.trim()) empParams.search = search.trim();
-  if (filterDept) empParams.department = filterDept;
-  if (filterStatus !== "all") empParams.isActive = filterStatus === "active";
-  if (filterRole !== "all") empParams.role = filterRole;
+  const empFilters: { search?: string; department?: string; isActive?: boolean; role?: string } = {};
+  if (search.trim()) empFilters.search = search.trim();
+  if (filterDept) empFilters.department = filterDept;
+  if (filterStatus !== "all") empFilters.isActive = filterStatus === "active";
+  if (filterRole !== "all") empFilters.role = filterRole;
 
   // ── Queries ──────────────────────────────────────────────────────────────
-  const {
-    data: employees = [],
-    isLoading,
-    error: empError,
-  } = useQuery({
-    queryKey: queryKeys.employees.list(empParams),
-    queryFn: () => listEmployees(empParams as { search?: string; department?: string; isActive?: boolean; role?: string }),
-  });
+  const { employees, isLoading, error, invalidate: invalidateEmployees } = useEmployees(empFilters);
 
   const { data: allClients = [] } = useQuery({
     queryKey: queryKeys.clients.list({ limit: 100 }),
     queryFn: () => listClients({ limit: 100 }).then((r) => r.clients as unknown as Client[]),
   });
 
-  const { data: allDepartments = [] } = useQuery({
-    queryKey: queryKeys.departments.list({ isActive: true }),
-    queryFn: () => listDepartments({ isActive: true }),
-  });
-
-  const invalidateEmployees = () =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
-
-  const error = empError instanceof Error ? empError.message : empError ? String(empError) : null;
+  const { departments: allDepartments } = useDepartments({ isActive: true });
   const hasActiveFilters = filterDept !== "" || filterStatus !== "active" || filterRole !== "all";
 
   const selectClass = "h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer";

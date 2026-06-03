@@ -1,11 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import {
-  listTaskReports,
   createTaskReport,
   updateTaskReport,
   deleteTaskReport,
@@ -15,7 +12,9 @@ import {
   type ReportStatus,
   type CreateTaskReportData,
 } from "@/lib/api/reports.api";
-import { listDepartments, type Department } from "@/lib/api/departments.api";
+import type { Department } from "@/lib/api/departments.api";
+import { useReports } from "@/hooks/queries";
+import { useDepartments } from "@/hooks/queries";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -477,7 +476,6 @@ type View = "list" | "detail" | "create" | "edit";
 
 export default function AdminReportsPage() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
   const [view, setView] = useState<View>("list");
   const [selectedReport, setSelectedReport] = useState<TaskReport | null>(null);
 
@@ -497,33 +495,15 @@ export default function AdminReportsPage() {
 
   // ── Queries ────────────────────────────────────────────────────────────
   const {
-    data: reportsData,
+    reports,
+    total,
+    totalPages,
     isLoading,
-    error: queryError,
-  } = useQuery({
-    queryKey: queryKeys.reports.list(
-      reportFilters as unknown as Record<string, unknown>,
-    ),
-    queryFn: () => listTaskReports(reportFilters),
-  });
+    error,
+    invalidate: invalidateReports,
+  } = useReports(reportFilters);
 
-  const { data: departments = [] } = useQuery({
-    queryKey: queryKeys.departments.list({ isActive: true }),
-    queryFn: () => listDepartments({ isActive: true }),
-  });
-
-  const invalidateReports = () =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.reports.all });
-
-  const reports = reportsData?.reports ?? [];
-  const total = reportsData?.pagination?.total ?? 0;
-  const totalPages = reportsData?.pagination?.totalPages ?? 1;
-  const error =
-    queryError instanceof Error
-      ? queryError.message
-      : queryError
-        ? String(queryError)
-        : null;
+  const { departments } = useDepartments({ isActive: true });
 
   const handleCreate = async (data: CreateTaskReportData) => {
     await createTaskReport(data);

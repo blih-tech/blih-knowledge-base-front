@@ -1,15 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  adminGetAllFaqs,
   adminCreateFaq,
   adminUpdateFaq,
   adminDeleteFaq,
   type Faq,
 } from "@/lib/api/faq.api";
-import { queryKeys } from "@/lib/query-keys";
+import { useFaqs } from "@/hooks/queries";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,7 +93,6 @@ function FaqForm({
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function AdminFaqPage() {
-  const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -103,19 +100,14 @@ export default function AdminFaqPage() {
 
   // ── Query ───────────────────────────────────────────────────────────────
   const {
-    data: faqs = [],
+    faqs,
     isLoading,
     error: queryError,
-  } = useQuery({
-    queryKey: queryKeys.faq.list({}),
-    queryFn: () => adminGetAllFaqs(),
-  });
-
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.faq.all });
+    invalidate,
+  } = useFaqs();
 
   const displayError =
-    error ?? (queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null);
+    error ?? queryError;
 
   // ─── CRUD helpers ──────────────────────────────────────────────────────────
 

@@ -1,15 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import {
-  getMyProfile,
   updateMyProfile,
   changeMyPassword,
   type MyProfile,
 } from "@/lib/api/profile.api";
+import { useProfile } from "@/hooks/queries";
 import { PERMISSION_LABELS } from "@/lib/permissions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -596,21 +594,13 @@ function AccountOverview({ profile }: { profile: MyProfile }) {
 
 export default function AdminProfilePage() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
 
   const {
-    data: profile,
+    profile,
     isLoading,
-    error: queryError,
-  } = useQuery({
-    queryKey: queryKeys.profile.me,
-    queryFn: getMyProfile,
-  });
-
-  const invalidateProfile = () =>
-    queryClient.invalidateQueries({ queryKey: queryKeys.profile.me });
-
-  const error = queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null;
+    error,
+    invalidate: invalidateProfile,
+  } = useProfile();
 
   if (isLoading) {
     return (

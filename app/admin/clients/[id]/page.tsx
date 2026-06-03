@@ -1,15 +1,14 @@
 "use client";
 
 import { useState, use } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/query-keys";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  getClient, listObservations, createObservation,
+  createObservation,
   updateObservation, deleteObservation, updateClient,
   type Client, type Observation, type ObservationType, type SentimentType, type ClientStatus,
 } from "@/lib/api/clients.api";
+import { useClientDetail } from "@/hooks/queries";
 import { useAdminAI } from "@/lib/admin-ai-context";
 import { ContactsPanel } from "@/components/ContactsPanel";
 import { Card } from "@/components/ui/card";
@@ -363,7 +362,6 @@ function ObservationCard({
 export default function ClientProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { open: openAI } = useAdminAI();
   const [filterType, setFilterType] = useState<ObservationType | "all">("all");
   const [contactFilter, setContactFilter] = useState<string | null>(null);
@@ -371,28 +369,16 @@ export default function ClientProfilePage({ params }: { params: Promise<{ id: st
 
   // ── Queries ─────────────────────────────────────────────────────────────
   const {
-    data: detail,
+    detail,
+    client,
+    typeCounts,
+    contacts,
+    healthScore,
+    observations,
     isLoading,
     error: detailError,
-  } = useQuery({
-    queryKey: queryKeys.clients.detail(id),
-    queryFn: () => getClient(id),
-  });
-
-  const { data: observations = [] } = useQuery({
-    queryKey: queryKeys.clients.observations(id),
-    queryFn: () => listObservations(id),
-  });
-
-  const invalidateDetail = () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.clients.detail(id) });
-    queryClient.invalidateQueries({ queryKey: queryKeys.clients.observations(id) });
-  };
-
-  const client = detail?.client ?? null;
-  const typeCounts = detail?.typeCounts ?? {};
-  const contacts = detail?.contacts ?? [];
-  const healthScore = detail?.healthScore ?? 50;
+    invalidate: invalidateDetail,
+  } = useClientDetail(id);
 
   const filtered = (() => {
     let result = filterType === "all" ? observations : observations.filter((o) => o.type === filterType);
