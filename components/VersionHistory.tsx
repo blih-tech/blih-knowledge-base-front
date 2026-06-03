@@ -138,7 +138,7 @@ export function VersionHistory({ documentId, canRestore, onRestored }: VersionHi
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white border border-border shadow-xs"
         >
           <Badge variant="secondary" className="shrink-0 font-mono text-xs">
-            v{v.version}
+            {v.versionLabel?.trim() ? v.versionLabel : `v${v.version}`}
           </Badge>
           {idx === 0 && (
             <Badge variant="outline" className="shrink-0 text-[10px] text-teal-700 border-teal-300 bg-teal-50">
@@ -190,7 +190,9 @@ export function VersionHistory({ documentId, canRestore, onRestored }: VersionHi
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {preview ? `Version v${preview.version}` : "Loading version…"}
+              {preview
+                ? `Version ${preview.versionLabel?.trim() ? preview.versionLabel : "v" + preview.version}`
+                : "Loading version…"}
               {preview?.docId && (
                 <span className="text-xs font-mono text-muted-foreground">{preview.docId}</span>
               )}

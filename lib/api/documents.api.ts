@@ -58,6 +58,7 @@ export interface FullDocument {
 export interface DocumentVersion {
   _id: string;
   version: number;
+  versionLabel?: string;
   title: string;
   docId: string;
   changedBy: UserRef | null;

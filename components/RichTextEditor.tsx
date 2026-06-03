@@ -337,7 +337,7 @@ export function RichTextEditor({
       </div>
 
       {/* Editor */}
-      <div className="overflow-y-auto max-h-[75vh]">
+      <div className="overflow-y-auto max-h-[70vh]">
         <EditorContent editor={editor} />
       </div>
 

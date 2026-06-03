@@ -31,6 +31,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import { ChevronLeft, Save, Trash2, Loader2, Plus, History, Lock, X } from "lucide-react";
 import { FileImportButton } from "./FileImportButton";
 
@@ -78,6 +79,12 @@ export function DocumentEditor({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // ── Save / version prompt state (existing docs only) ────────────────────────
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [createVersion, setCreateVersion] = useState(false);
+  const [versionLabel, setVersionLabel] = useState("");
+  const [versionNote, setVersionNote] = useState("");
 
   // ── Ownership state ────────────────────────────────────────────────────────
   const [owner, setOwner] = useState<string>(""); // user _id, or "" when unassigned
@@ -154,8 +161,7 @@ export function DocumentEditor({
     }
   };
 
-  const handleSave = async () => {
-    if (!validate()) return;
+  const doSave = async (versionOpts?: { createVersion: boolean; versionLabel: string; changeNote: string }) => {
     setIsSaving(true);
     setSaveError(null);
     try {
@@ -172,19 +178,45 @@ export function DocumentEditor({
       if (documentId) {
         // Only send ownership/contributor fields when allowed to manage them —
         // otherwise the backend would 403 a contributor's content-only edit.
-        const data = canManage
+        const data: Record<string, unknown> = canManage
           ? { ...base, owner: owner || null, contributors }
-          : base;
+          : { ...base };
+        // Versioning is opt-in: only snapshot when the editor asked to.
+        data.createVersion = !!versionOpts?.createVersion;
+        if (versionOpts?.createVersion) {
+          data.versionLabel = versionOpts.versionLabel;
+          data.changeNote = versionOpts.changeNote || undefined;
+        }
         await updateDocument(documentId, data);
       } else {
         await createDocument({ ...base, owner: owner || undefined, contributors });
       }
+      setShowSaveDialog(false);
       onClose();
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Save failed");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Main Save button: existing docs prompt about versioning first; new docs save directly.
+  const handleSaveClick = () => {
+    if (!validate()) return;
+    if (documentId) {
+      setCreateVersion(false);
+      setVersionLabel("");
+      setVersionNote("");
+      setSaveError(null);
+      setShowSaveDialog(true);
+    } else {
+      doSave();
+    }
+  };
+
+  const confirmSave = () => {
+    if (createVersion && !versionLabel.trim()) return;
+    doSave({ createVersion, versionLabel: versionLabel.trim(), changeNote: versionNote.trim() });
   };
 
   const handleDelete = async () => {
@@ -612,7 +644,7 @@ export function DocumentEditor({
 
           {/* Actions */}
           <div className="flex gap-3 flex-wrap">
-            <Button onClick={handleSave} disabled={isSaving || !canEditContent} className="gap-2">
+            <Button onClick={handleSaveClick} disabled={isSaving || !canEditContent} className="gap-2">
               <Save className="w-4 h-4" />
               {isSaving ? "Saving…" : "Save Document"}
             </Button>
@@ -744,6 +776,90 @@ export function DocumentEditor({
                 <Plus className="w-4 h-4" />
               )}
               {isCreating ? "Creating…" : "Create Section"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Save / version prompt (existing documents) ───────────────────────── */}
+      <Dialog open={showSaveDialog} onOpenChange={(open) => !isSaving && setShowSaveDialog(open)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save changes</DialogTitle>
+            <DialogDescription>
+              Choose whether this save should also be recorded as a new version of the document.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5">
+              <div>
+                <p className="text-sm font-medium">Create a new version</p>
+                <p className="text-xs text-muted-foreground">
+                  Snapshot this saved content so it can be viewed or restored later.
+                </p>
+              </div>
+              <Switch checked={createVersion} onCheckedChange={setCreateVersion} />
+            </div>
+
+            {createVersion && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">
+                    Version number *
+                  </label>
+                  <Input
+                    autoFocus
+                    value={versionLabel}
+                    onChange={(e) => setVersionLabel(e.target.value)}
+                    placeholder='e.g. "2.0" or "Rev C"'
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && versionLabel.trim()) {
+                        e.preventDefault();
+                        confirmSave();
+                      }
+                    }}
+                  />
+                  {createVersion && !versionLabel.trim() && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Enter a version number to record this version.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">
+                    Change note{" "}
+                    <span className="text-muted-foreground text-xs">(optional)</span>
+                  </label>
+                  <Input
+                    value={versionNote}
+                    onChange={(e) => setVersionNote(e.target.value)}
+                    placeholder="What changed in this version?"
+                  />
+                </div>
+              </div>
+            )}
+
+            {saveError && <p className="text-xs text-red-600">{saveError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmSave}
+              disabled={isSaving || (createVersion && !versionLabel.trim())}
+              className="gap-1.5"
+            >
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              {isSaving
+                ? "Saving…"
+                : createVersion
+                  ? "Save as new version"
+                  : "Save without version"}
             </Button>
           </DialogFooter>
         </DialogContent>
