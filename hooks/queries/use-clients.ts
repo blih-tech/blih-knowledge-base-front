@@ -1,11 +1,20 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import {
+  createClient,
+  createContact,
+  createObservation,
+  deleteClient,
+  deleteContact,
+  deleteObservation,
   listClients,
   getClient,
   listObservations,
+  updateClient,
+  updateContact,
+  updateObservation,
   type Client,
   type ClientListResult,
   type ClientDetail,
@@ -47,6 +56,111 @@ export function useClients(filters: ClientListFilters = {}) {
       ? query.error.message
       : query.error ? String(query.error) : null,
     invalidate,
+  };
+}
+
+export function useClientMutations(clientId?: string) {
+  const queryClient = useQueryClient();
+
+  const invalidateClients = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.clients.all });
+  const invalidateClientDetail = (id: string) => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.clients.detail(id) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.clients.observations(id) });
+  };
+
+  const create = useMutation({
+    mutationFn: createClient,
+    onSuccess: invalidateClients,
+  });
+
+  const update = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Client> }) =>
+      updateClient(id, data),
+    onSuccess: (_client, variables) => {
+      invalidateClients();
+      invalidateClientDetail(variables.id);
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: deleteClient,
+    onSuccess: (_result, id) => {
+      invalidateClients();
+      queryClient.removeQueries({ queryKey: queryKeys.clients.detail(id) });
+    },
+  });
+
+  const createContactMutation = useMutation({
+    mutationFn: ({ data }: { data: Parameters<typeof createContact>[1] }) => {
+      if (!clientId) throw new Error("Client id is required");
+      return createContact(clientId, data);
+    },
+    onSuccess: () => {
+      if (clientId) invalidateClientDetail(clientId);
+    },
+  });
+
+  const updateContactMutation = useMutation({
+    mutationFn: ({ contactId, data }: { contactId: string; data: Parameters<typeof updateContact>[2] }) => {
+      if (!clientId) throw new Error("Client id is required");
+      return updateContact(clientId, contactId, data);
+    },
+    onSuccess: () => {
+      if (clientId) invalidateClientDetail(clientId);
+    },
+  });
+
+  const deleteContactMutation = useMutation({
+    mutationFn: (contactId: string) => {
+      if (!clientId) throw new Error("Client id is required");
+      return deleteContact(clientId, contactId);
+    },
+    onSuccess: () => {
+      if (clientId) invalidateClientDetail(clientId);
+    },
+  });
+
+  const createObservationMutation = useMutation({
+    mutationFn: ({ data }: { data: Parameters<typeof createObservation>[1] }) => {
+      if (!clientId) throw new Error("Client id is required");
+      return createObservation(clientId, data);
+    },
+    onSuccess: () => {
+      if (clientId) invalidateClientDetail(clientId);
+    },
+  });
+
+  const updateObservationMutation = useMutation({
+    mutationFn: ({ observationId, data }: { observationId: string; data: Parameters<typeof updateObservation>[2] }) => {
+      if (!clientId) throw new Error("Client id is required");
+      return updateObservation(clientId, observationId, data);
+    },
+    onSuccess: () => {
+      if (clientId) invalidateClientDetail(clientId);
+    },
+  });
+
+  const deleteObservationMutation = useMutation({
+    mutationFn: (observationId: string) => {
+      if (!clientId) throw new Error("Client id is required");
+      return deleteObservation(clientId, observationId);
+    },
+    onSuccess: () => {
+      if (clientId) invalidateClientDetail(clientId);
+    },
+  });
+
+  return {
+    createClient: create,
+    updateClient: update,
+    deleteClient: remove,
+    createContact: createContactMutation,
+    updateContact: updateContactMutation,
+    deleteContact: deleteContactMutation,
+    createObservation: createObservationMutation,
+    updateObservation: updateObservationMutation,
+    deleteObservation: deleteObservationMutation,
   };
 }
 

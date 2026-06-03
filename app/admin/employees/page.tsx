@@ -1,17 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/query-keys";
 import { createPortal } from "react-dom";
 import {
-  createEmployee, updateEmployee, assignClients,
-  deactivateEmployee, resetPassword, setEmployeeRole, updatePermissions,
   type Employee,
 } from "@/lib/api/employees.api";
-import { listClients, type Client } from "@/lib/api/clients.api";
+import type { Client } from "@/lib/api/clients.api";
 import type { Department } from "@/lib/api/departments.api";
-import { useEmployees } from "@/hooks/queries";
+import { useClients, useEmployees, useEmployeeMutations } from "@/hooks/queries";
 import { useDepartments } from "@/hooks/queries";
 import { PERMISSIONS, PERMISSION_LABELS } from "@/lib/permissions";
 import { useAuth } from "@/hooks/use-auth";
@@ -53,6 +49,7 @@ function CreateEmployeeModal({
   onClose: () => void;
   onCreate: (e: Employee) => void;
 }) {
+  const { createEmployee } = useEmployeeMutations();
   const [form, setForm] = useState({
     name: "", email: "", password: "", department: "", position: "",
   });
@@ -72,7 +69,7 @@ function CreateEmployeeModal({
     if (!form.name.trim() || !form.email.trim() || !form.password.trim()) return;
     setIsSaving(true); setError(null);
     try {
-      onCreate(await createEmployee({
+      onCreate(await createEmployee.mutateAsync({
         ...form,
         assignedClients: selectedClients,
         permissions: selectedPermissions,
@@ -196,6 +193,7 @@ function AssignClientsModal({
   onClose: () => void;
   onSaved: (e: Employee) => void;
 }) {
+  const { assignClients } = useEmployeeMutations();
   const [selected, setSelected] = useState<string[]>(employee.assignedClients.map((c) => c._id));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -205,7 +203,7 @@ function AssignClientsModal({
 
   const handleSave = async () => {
     setIsSaving(true); setError(null);
-    try { onSaved(await assignClients(employee._id, selected)); }
+    try { onSaved(await assignClients.mutateAsync({ id: employee._id, clientIds: selected })); }
     catch (err) { setError(err instanceof Error ? err.message : "Failed to save"); }
     finally { setIsSaving(false); }
   };
@@ -260,6 +258,7 @@ function EditEmployeeModal({
   onSaved: (e: Employee) => void;
 }) {
   const { isSuperAdmin } = useAuth();
+  const { updateEmployee, updatePermissions } = useEmployeeMutations();
   const [form, setForm] = useState({
     name: employee.name,
     email: employee.email,
@@ -284,15 +283,18 @@ function EditEmployeeModal({
     setIsSaving(true); setError(null);
     try {
       // Update profile fields
-      let updated = await updateEmployee(employee._id, {
-        name: form.name.trim(),
-        department: form.department || null,
-        position: form.position.trim(),
-        isActive: form.isActive,
+      let updated = await updateEmployee.mutateAsync({
+        id: employee._id,
+        data: {
+          name: form.name.trim(),
+          department: form.department || undefined,
+          position: form.position.trim(),
+          isActive: form.isActive,
+        },
       });
       // Update permissions if current user is super admin
       if (isSuperAdmin && !employee.isSuperAdmin) {
-        updated = await updatePermissions(employee._id, selectedPermissions);
+        updated = await updatePermissions.mutateAsync({ id: employee._id, permissions: selectedPermissions });
       }
       onSaved(updated);
     } catch (err) {
@@ -440,6 +442,7 @@ function ResetPasswordModal({
   employee: Employee;
   onClose: () => void;
 }) {
+  const { resetPassword } = useEmployeeMutations();
   const [newPassword, setNewPassword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -450,7 +453,7 @@ function ResetPasswordModal({
     if (newPassword.length < 8) return;
     setIsSaving(true); setError(null);
     try {
-      await resetPassword(employee._id, newPassword);
+      await resetPassword.mutateAsync({ id: employee._id, newPassword });
       setSuccess(true);
       setTimeout(onClose, 1200);
     } catch (err) {
@@ -505,6 +508,7 @@ function EmployeeRow({
   allDepartments: Department[];
   onRefresh: () => void;
 }) {
+  const { deactivateEmployee, setEmployeeRole } = useEmployeeMutations();
   const [showAssign, setShowAssign] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showResetPw, setShowResetPw] = useState(false);
@@ -514,7 +518,7 @@ function EmployeeRow({
   const handleDeactivate = async () => {
     if (!confirm(`Deactivate ${employee.name}? They will lose access.`)) return;
     setIsDeactivating(true);
-    try { await deactivateEmployee(employee._id); onRefresh(); }
+    try { await deactivateEmployee.mutateAsync(employee._id); onRefresh(); }
     finally { setIsDeactivating(false); }
   };
 
@@ -524,7 +528,7 @@ function EmployeeRow({
     if (!confirm(`This will ${label} for ${employee.name}. Continue?`)) return;
     setIsTogglingRole(true);
     try {
-      await setEmployeeRole(employee._id, newRole);
+      await setEmployeeRole.mutateAsync({ id: employee._id, role: newRole });
       onRefresh();
       if (newRole === "admin") {
         setTimeout(() => setShowAssign(true), 100);
@@ -702,10 +706,7 @@ export default function AdminEmployeesPage() {
   // ── Queries ──────────────────────────────────────────────────────────────
   const { employees, isLoading, error, invalidate: invalidateEmployees } = useEmployees(empFilters);
 
-  const { data: allClients = [] } = useQuery({
-    queryKey: queryKeys.clients.list({ limit: 100 }),
-    queryFn: () => listClients({ limit: 100 }).then((r) => r.clients as unknown as Client[]),
-  });
+  const { clients: allClients } = useClients({ limit: 100 });
 
   const { departments: allDepartments } = useDepartments({ isActive: true });
   const hasActiveFilters = filterDept !== "" || filterStatus !== "active" || filterRole !== "all";

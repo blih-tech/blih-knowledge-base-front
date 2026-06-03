@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import {
-  createContact, updateContact, deleteContact,
   type Contact, type ContactRole,
 } from "@/lib/api/clients.api";
+import { useClientMutations } from "@/hooks/queries";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,6 +103,11 @@ function ContactForm({
 }
 
 export function ContactsPanel({ clientId, initialContacts }: { clientId: string; initialContacts: Contact[] }) {
+  const {
+    createContact,
+    updateContact,
+    deleteContact,
+  } = useClientMutations(clientId);
   const [contacts, setContacts] = useState<Contact[]>(initialContacts);
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -112,7 +117,7 @@ export function ContactsPanel({ clientId, initialContacts }: { clientId: string;
   const handleCreate = async (f: ContactForm) => {
     setIsSaving(true); setError(null);
     try {
-      const c = await createContact(clientId, f);
+      const c = await createContact.mutateAsync({ data: f });
       setContacts((prev) => {
         const updated = f.isPrimary ? prev.map((p) => ({ ...p, isPrimary: false })) : [...prev];
         return [c, ...updated].sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
@@ -125,7 +130,7 @@ export function ContactsPanel({ clientId, initialContacts }: { clientId: string;
   const handleUpdate = async (contactId: string, f: ContactForm) => {
     setIsSaving(true); setError(null);
     try {
-      const c = await updateContact(clientId, contactId, f);
+      const c = await updateContact.mutateAsync({ contactId, data: f });
       setContacts((prev) => {
         const updated = f.isPrimary ? prev.map((p) => ({ ...p, isPrimary: false })) : [...prev];
         return updated.map((p) => p._id === contactId ? c : p)
@@ -139,7 +144,7 @@ export function ContactsPanel({ clientId, initialContacts }: { clientId: string;
   const handleDelete = async (contactId: string, name: string) => {
     if (!confirm(`Remove ${name} from contacts?`)) return;
     try {
-      await deleteContact(clientId, contactId);
+      await deleteContact.mutateAsync(contactId);
       setContacts((prev) => prev.filter((c) => c._id !== contactId));
     } catch (e) { setError(e instanceof Error ? e.message : "Failed to delete contact"); }
   };

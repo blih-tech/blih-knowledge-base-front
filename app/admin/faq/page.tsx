@@ -2,12 +2,9 @@
 
 import { useState } from "react";
 import {
-  adminCreateFaq,
-  adminUpdateFaq,
-  adminDeleteFaq,
   type Faq,
 } from "@/lib/api/faq.api";
-import { useFaqs } from "@/hooks/queries";
+import { useFaqMutations, useFaqs } from "@/hooks/queries";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,6 +94,7 @@ export default function AdminFaqPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { createFaq, updateFaq, deleteFaq } = useFaqMutations();
 
   // ── Query ───────────────────────────────────────────────────────────────
   const {
@@ -115,7 +113,7 @@ export default function AdminFaqPage() {
     setBusyId("new");
     setError(null);
     try {
-      await adminCreateFaq({ question, answer, order });
+      await createFaq.mutateAsync({ question, answer, order });
       setShowAddForm(false);
       invalidate();
     } catch (e) {
@@ -129,7 +127,7 @@ export default function AdminFaqPage() {
     setBusyId(id);
     setError(null);
     try {
-      await adminUpdateFaq(id, { question, answer, order });
+      await updateFaq.mutateAsync({ id, data: { question, answer, order } });
       setEditingId(null);
       invalidate();
     } catch (e) {
@@ -144,7 +142,7 @@ export default function AdminFaqPage() {
     setBusyId(id);
     setError(null);
     try {
-      await adminDeleteFaq(id);
+      await deleteFaq.mutateAsync(id);
       invalidate();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete FAQ");

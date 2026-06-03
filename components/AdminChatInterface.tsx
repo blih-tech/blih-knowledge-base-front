@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { sendAdminChatMessage, type ChatMessage, type Source } from "@/lib/api/ai.api";
+import type { ChatMessage, Source } from "@/lib/api/ai.api";
+import { useAiMutations } from "@/hooks/queries";
 import { Button } from "@/components/ui/button";
 import {
   ShieldCheck,
@@ -132,6 +133,7 @@ function EmptyState() {
 // ─── Main admin chat interface ────────────────────────────────────────────────
 
 export function AdminChatInterface({ initialMessage = "" }: { initialMessage?: string }) {
+  const { sendAdminChatMessage } = useAiMutations();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sourcesMap, setSourcesMap] = useState<Record<number, Source[]>>({});
   const [input, setInput] = useState("");
@@ -175,7 +177,10 @@ export function AdminChatInterface({ initialMessage = "" }: { initialMessage?: s
     setError(null);
 
     try {
-      const { reply, sources } = await sendAdminChatMessage(trimmed, messages);
+      const { reply, sources } = await sendAdminChatMessage.mutateAsync({
+        message: trimmed,
+        history: messages,
+      });
       const assistantMsg: ChatMessage = { role: "assistant", content: reply };
       setMessages((prev) => {
         const idx = prev.length;
@@ -187,7 +192,7 @@ export function AdminChatInterface({ initialMessage = "" }: { initialMessage?: s
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, messages]);
+  }, [isLoading, messages, sendAdminChatMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {

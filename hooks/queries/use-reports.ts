@@ -1,9 +1,12 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import {
+  createTaskReport,
+  deleteTaskReport,
   listTaskReports,
+  updateTaskReport,
   type TaskReportFilters,
   type TaskReportListResponse,
 } from "@/lib/api/reports.api";
@@ -34,5 +37,33 @@ export function useReports(filters: TaskReportFilters = {}) {
       ? query.error.message
       : query.error ? String(query.error) : null,
     invalidate,
+  };
+}
+
+export function useReportMutations() {
+  const queryClient = useQueryClient();
+  const invalidateReports = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.reports.all });
+
+  const create = useMutation({
+    mutationFn: createTaskReport,
+    onSuccess: invalidateReports,
+  });
+
+  const update = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof updateTaskReport>[1] }) =>
+      updateTaskReport(id, data),
+    onSuccess: invalidateReports,
+  });
+
+  const remove = useMutation({
+    mutationFn: deleteTaskReport,
+    onSuccess: invalidateReports,
+  });
+
+  return {
+    createTaskReport: create,
+    updateTaskReport: update,
+    deleteTaskReport: remove,
   };
 }

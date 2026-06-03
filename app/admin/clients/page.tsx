@@ -4,10 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  createClient, deleteClient,
   type Client, type ClientStatus, type ClientTier,
 } from "@/lib/api/clients.api";
-import { useClients } from "@/hooks/queries";
+import { useClientMutations, useClients } from "@/hooks/queries";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +55,7 @@ function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg"
 // ─── Create modal ─────────────────────────────────────────────────────────────
 
 function CreateClientModal({ onClose, onCreate }: { onClose: () => void; onCreate: (c: Client) => void }) {
+  const { createClient } = useClientMutations();
   const [form, setForm] = useState({
     name: "", company: "", industry: "", website: "",
     email: "", phone: "", status: "active" as ClientStatus, tier: "" as ClientTier,
@@ -67,7 +67,7 @@ function CreateClientModal({ onClose, onCreate }: { onClose: () => void; onCreat
     e.preventDefault();
     if (!form.name.trim()) return;
     setIsSaving(true); setError(null);
-    try { onCreate(await createClient(form)); }
+    try { onCreate(await createClient.mutateAsync(form)); }
     catch (err) { setError(err instanceof Error ? err.message : "Failed to create client"); }
     finally { setIsSaving(false); }
   };
@@ -139,6 +139,7 @@ export default function AdminClientsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const { deleteClient } = useClientMutations();
 
   // ── Query ────────────────────────────────────────────────────────────────
   const clientParams = {
@@ -162,7 +163,7 @@ export default function AdminClientsPage() {
     setDeletingId(id);
     setMutationError(null);
     try {
-      await deleteClient(id);
+      await deleteClient.mutateAsync(id);
       invalidateClients();
     } catch (err) {
       setMutationError(err instanceof Error ? err.message : "Failed to delete client");

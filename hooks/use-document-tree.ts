@@ -1,11 +1,14 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import {
   CategoryNode,
   SectionNode,
   DocSummary,
+  adminGetDocumentById,
+  adminGetDocumentVersion,
+  adminGetDocumentVersions,
   getFullTreeClient,
   adminCreateCategory,
   adminUpdateCategory,
@@ -17,10 +20,21 @@ import {
   adminUpdateDocument,
   adminDeleteDocument,
   adminRestoreDocumentVersion,
+  parseDocumentFile,
+  type DocumentVersion,
+  type DocumentVersionDetail,
+  type FullDocument,
 } from "@/lib/api/documents.api";
 
 // Re-export types for convenience (mirrors old admin-context exports)
-export type { CategoryNode, SectionNode, DocSummary };
+export type {
+  CategoryNode,
+  SectionNode,
+  DocSummary,
+  DocumentVersion,
+  DocumentVersionDetail,
+  FullDocument,
+};
 
 /**
  * React Query replacement for the legacy AdminContext.
@@ -47,38 +61,88 @@ export function useDocumentTree() {
   const invalidateTree = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.documents.tree });
 
+  const createCategoryMutation = useMutation({
+    mutationFn: adminCreateCategory,
+    onSuccess: invalidateTree,
+  });
+  const updateCategoryMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: object }) =>
+      adminUpdateCategory(id, data),
+    onSuccess: invalidateTree,
+  });
+  const deleteCategoryMutation = useMutation({
+    mutationFn: adminDeleteCategory,
+    onSuccess: invalidateTree,
+  });
+  const createSectionMutation = useMutation({
+    mutationFn: adminCreateSection,
+    onSuccess: invalidateTree,
+  });
+  const updateSectionMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: object }) =>
+      adminUpdateSection(id, data),
+    onSuccess: invalidateTree,
+  });
+  const deleteSectionMutation = useMutation({
+    mutationFn: adminDeleteSection,
+    onSuccess: invalidateTree,
+  });
+  const createDocumentMutation = useMutation({
+    mutationFn: adminCreateDocument,
+    onSuccess: invalidateTree,
+  });
+  const updateDocumentMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: object }) =>
+      adminUpdateDocument(id, data),
+    onSuccess: (_result, variables) => {
+      invalidateTree();
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.versions(variables.id) });
+    },
+  });
+  const deleteDocumentMutation = useMutation({
+    mutationFn: adminDeleteDocument,
+    onSuccess: (_result, id) => {
+      invalidateTree();
+      queryClient.removeQueries({ queryKey: queryKeys.documents.detail(id) });
+    },
+  });
+  const restoreVersionMutation = useMutation({
+    mutationFn: ({ id, versionId, changeNote }: { id: string; versionId: string; changeNote?: string }) =>
+      adminRestoreDocumentVersion(id, versionId, changeNote),
+    onSuccess: (_result, variables) => {
+      invalidateTree();
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.versions(variables.id) });
+    },
+  });
+
   // ── Categories ──────────────────────────────────────────────────────────────
 
   const createCategory = async (name: string) => {
-    await adminCreateCategory({ name });
-    await invalidateTree();
+    await createCategoryMutation.mutateAsync({ name });
   };
 
   const updateCategory = async (id: string, data: object) => {
-    await adminUpdateCategory(id, data);
-    await invalidateTree();
+    await updateCategoryMutation.mutateAsync({ id, data });
   };
 
   const deleteCategory = async (id: string) => {
-    await adminDeleteCategory(id);
-    await invalidateTree();
+    await deleteCategoryMutation.mutateAsync(id);
   };
 
   // ── Sections ────────────────────────────────────────────────────────────────
 
   const createSection = async (categoryId: string, name: string) => {
-    await adminCreateSection({ categoryId, name });
-    await invalidateTree();
+    await createSectionMutation.mutateAsync({ categoryId, name });
   };
 
   const updateSection = async (id: string, data: object) => {
-    await adminUpdateSection(id, data);
-    await invalidateTree();
+    await updateSectionMutation.mutateAsync({ id, data });
   };
 
   const deleteSection = async (id: string) => {
-    await adminDeleteSection(id);
-    await invalidateTree();
+    await deleteSectionMutation.mutateAsync(id);
   };
 
   // ── Documents ───────────────────────────────────────────────────────────────
@@ -94,24 +158,20 @@ export function useDocumentTree() {
     owner?: string;
     contributors?: string[];
   }): Promise<DocSummary> => {
-    const created = await adminCreateDocument(data);
-    await invalidateTree();
+    const created = await createDocumentMutation.mutateAsync(data);
     return created as DocSummary;
   };
 
   const updateDocument = async (id: string, data: object) => {
-    await adminUpdateDocument(id, data);
-    await invalidateTree();
+    await updateDocumentMutation.mutateAsync({ id, data });
   };
 
   const deleteDocument = async (id: string) => {
-    await adminDeleteDocument(id);
-    await invalidateTree();
+    await deleteDocumentMutation.mutateAsync(id);
   };
 
   const restoreDocumentVersion = async (id: string, versionId: string) => {
-    await adminRestoreDocumentVersion(id, versionId);
-    await invalidateTree();
+    await restoreVersionMutation.mutateAsync({ id, versionId });
   };
 
   return {
@@ -131,4 +191,33 @@ export function useDocumentTree() {
     deleteDocument,
     restoreDocumentVersion,
   };
+}
+
+export function useDocument(documentId?: string) {
+  return useQuery({
+    queryKey: queryKeys.documents.detail(documentId ?? ""),
+    queryFn: () => adminGetDocumentById(documentId!),
+    enabled: !!documentId,
+  });
+}
+
+export function useDocumentVersions(documentId: string) {
+  return useQuery({
+    queryKey: queryKeys.documents.versions(documentId),
+    queryFn: () => adminGetDocumentVersions(documentId),
+    enabled: !!documentId,
+  });
+}
+
+export function useDocumentVersion() {
+  return useMutation({
+    mutationFn: ({ documentId, versionId }: { documentId: string; versionId: string }) =>
+      adminGetDocumentVersion(documentId, versionId),
+  });
+}
+
+export function useDocumentFileImport() {
+  return useMutation({
+    mutationFn: parseDocumentFile,
+  });
 }

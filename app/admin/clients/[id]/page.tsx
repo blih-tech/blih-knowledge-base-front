@@ -4,11 +4,9 @@ import { useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  createObservation,
-  updateObservation, deleteObservation, updateClient,
   type Client, type Observation, type ObservationType, type SentimentType, type ClientStatus,
 } from "@/lib/api/clients.api";
-import { useClientDetail } from "@/hooks/queries";
+import { useClientDetail, useClientMutations } from "@/hooks/queries";
 import { useAdminAI } from "@/lib/admin-ai-context";
 import { ContactsPanel } from "@/components/ContactsPanel";
 import { Card } from "@/components/ui/card";
@@ -94,6 +92,7 @@ function AddObservationForm({
   contacts: import("@/lib/api/clients.api").Contact[];
   onAdded: (o: Observation) => void;
 }) {
+  const { createObservation } = useClientMutations(clientId);
   const [type, setType] = useState<ObservationType>("general");
   const [content, setContent] = useState("");
   const [sentiment, setSentiment] = useState<SentimentType>("neutral");
@@ -109,14 +108,14 @@ function AddObservationForm({
     setIsSaving(true);
     setError(null);
     try {
-      const obs = await createObservation(clientId, {
+      const obs = await createObservation.mutateAsync({ data: {
         type,
         content: content.trim(),
         sentiment,
         isPrivate,
         contactId: contactId || null,
         tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
-      });
+      } });
       onAdded(obs);
       setContent("");
       setTags("");
@@ -248,6 +247,7 @@ function ObservationCard({
   contacts: import("@/lib/api/clients.api").Contact[];
   onRefresh: () => void;
 }) {
+  const { updateObservation, deleteObservation } = useClientMutations(clientId);
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(obs.content);
   const [isBusy, setIsBusy] = useState(false);
@@ -259,7 +259,7 @@ function ObservationCard({
   const handleUpdate = async () => {
     setIsBusy(true);
     try {
-      await updateObservation(clientId, obs._id, { content });
+      await updateObservation.mutateAsync({ observationId: obs._id, data: { content } });
       onRefresh();
       setIsEditing(false);
     } finally {
@@ -271,7 +271,7 @@ function ObservationCard({
     if (!confirm("Delete this observation?")) return;
     setIsBusy(true);
     try {
-      await deleteObservation(clientId, obs._id);
+      await deleteObservation.mutateAsync(obs._id);
       onRefresh();
     } finally {
       setIsBusy(false);
@@ -399,7 +399,7 @@ export default function ClientProfilePage({ params }: { params: Promise<{ id: st
   }
 
   if (detailError || !client) {
-    const errorMsg = detailError instanceof Error ? detailError.message : detailError ? String(detailError) : null;
+    const errorMsg = detailError;
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <AlertCircle className="w-8 h-8 text-red-400 mb-3" />

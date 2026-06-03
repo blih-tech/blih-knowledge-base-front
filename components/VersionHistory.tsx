@@ -1,17 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 import { History, Eye, RotateCcw, Loader2 } from "lucide-react";
 import {
-  adminGetDocumentVersions,
-  adminGetDocumentVersion,
-  adminRestoreDocumentVersion,
   type DocumentVersion,
   type DocumentVersionDetail,
 } from "@/lib/api/documents.api";
+import { useDocumentTree, useDocumentVersion, useDocumentVersions } from "@/hooks/use-document-tree";
 import { queryKeys } from "@/lib/query-keys";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +43,8 @@ interface VersionHistoryProps {
 
 export function VersionHistory({ documentId, canRestore, onRestored }: VersionHistoryProps) {
   const queryClient = useQueryClient();
+  const { restoreDocumentVersion } = useDocumentTree();
+  const documentVersion = useDocumentVersion();
 
   // Preview dialog
   const [preview, setPreview] = useState<DocumentVersionDetail | null>(null);
@@ -60,10 +60,7 @@ export function VersionHistory({ documentId, canRestore, onRestored }: VersionHi
     data: versions = [],
     isLoading,
     error: queryError,
-  } = useQuery({
-    queryKey: queryKeys.documents.versions(documentId),
-    queryFn: () => adminGetDocumentVersions(documentId),
-  });
+  } = useDocumentVersions(documentId);
 
   const error = queryError instanceof Error
     ? queryError.message
@@ -75,7 +72,7 @@ export function VersionHistory({ documentId, canRestore, onRestored }: VersionHi
     setPreviewOpen(true);
     setPreview(null);
     setPreviewLoading(true);
-    adminGetDocumentVersion(documentId, version._id)
+    documentVersion.mutateAsync({ documentId, versionId: version._id })
       .then(setPreview)
       .catch((err) => {
         toast.error(err instanceof Error ? err.message : "Failed to load version");
@@ -88,7 +85,7 @@ export function VersionHistory({ documentId, canRestore, onRestored }: VersionHi
     if (!restoreTarget) return;
     setIsRestoring(true);
     try {
-      await adminRestoreDocumentVersion(documentId, restoreTarget._id);
+      await restoreDocumentVersion(documentId, restoreTarget._id);
       toast.success(`Restored version v${restoreTarget.version}`);
       setRestoreTarget(null);
       // Invalidate all related caches

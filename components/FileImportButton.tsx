@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { parseDocumentFile } from "@/lib/api/documents.api";
+import { useDocumentFileImport } from "@/hooks/use-document-tree";
 import { Button } from "@/components/ui/button";
 import { Upload, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
@@ -15,6 +15,7 @@ interface FileImportButtonProps {
 type Status = "idle" | "uploading" | "done" | "error";
 
 export function FileImportButton({ onImport, hasContent = false }: FileImportButtonProps) {
+  const importFile = useDocumentFileImport();
   const inputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -48,7 +49,7 @@ export function FileImportButton({ onImport, hasContent = false }: FileImportBut
     setErrorMsg(null);
 
     try {
-      const { html, title } = await parseDocumentFile(file);
+      const { html, title } = await importFile.mutateAsync(file);
       onImport(html, title);
       setStatus("done");
       // Reset to idle after 2.5 s so the user can re-import

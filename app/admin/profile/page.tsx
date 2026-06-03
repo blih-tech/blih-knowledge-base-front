@@ -3,11 +3,9 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import {
-  updateMyProfile,
-  changeMyPassword,
   type MyProfile,
 } from "@/lib/api/profile.api";
-import { useProfile } from "@/hooks/queries";
+import { useProfile, useProfileMutations } from "@/hooks/queries";
 import { PERMISSION_LABELS } from "@/lib/permissions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -121,6 +119,7 @@ function ProfileSection({
   profile: MyProfile;
   onRefresh: () => void;
 }) {
+  const { updateMyProfile } = useProfileMutations();
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({ name: profile.name, position: profile.position });
   const [isSaving, setIsSaving] = useState(false);
@@ -132,7 +131,7 @@ function ProfileSection({
     setIsSaving(true);
     setError(null);
     try {
-      const updated = await updateMyProfile({
+      await updateMyProfile.mutateAsync({
         name: form.name.trim(),
         position: form.position.trim(),
       });
@@ -281,6 +280,7 @@ function ProfileSection({
 // ─── Security Section ─────────────────────────────────────────────────────────
 
 function SecuritySection() {
+  const { changeMyPassword } = useProfileMutations();
   const [isChanging, setIsChanging] = useState(false);
   const [form, setForm] = useState({
     currentPassword: "",
@@ -306,7 +306,7 @@ function SecuritySection() {
     setIsSaving(true);
     setError(null);
     try {
-      await changeMyPassword({
+      await changeMyPassword.mutateAsync({
         currentPassword: form.currentPassword,
         newPassword: form.newPassword,
       });

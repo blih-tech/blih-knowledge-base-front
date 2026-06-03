@@ -1,9 +1,12 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import {
+  createDepartment,
+  deleteDepartment,
   listDepartments,
+  updateDepartment,
   type Department,
 } from "@/lib/api/departments.api";
 
@@ -33,5 +36,33 @@ export function useDepartments(filters: DepartmentFilters = {}) {
       ? query.error.message
       : query.error ? String(query.error) : null,
     invalidate,
+  };
+}
+
+export function useDepartmentMutations() {
+  const queryClient = useQueryClient();
+  const invalidateDepartments = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
+
+  const create = useMutation({
+    mutationFn: createDepartment,
+    onSuccess: invalidateDepartments,
+  });
+
+  const update = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof updateDepartment>[1] }) =>
+      updateDepartment(id, data),
+    onSuccess: invalidateDepartments,
+  });
+
+  const remove = useMutation({
+    mutationFn: deleteDepartment,
+    onSuccess: invalidateDepartments,
+  });
+
+  return {
+    createDepartment: create,
+    updateDepartment: update,
+    deleteDepartment: remove,
   };
 }

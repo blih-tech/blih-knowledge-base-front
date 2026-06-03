@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { sendChatMessage, type ChatMessage, type Source } from "@/lib/api/ai.api";
+import type { ChatMessage, Source } from "@/lib/api/ai.api";
+import { useAiMutations } from "@/hooks/queries";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles,
@@ -126,6 +127,7 @@ function EmptyState() {
 // ─── Main chat interface ──────────────────────────────────────────────────────
 
 export function ChatInterface() {
+  const { sendChatMessage } = useAiMutations();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sourcesMap, setSourcesMap] = useState<Record<number, Source[]>>({});
   const [input, setInput] = useState("");
@@ -162,7 +164,10 @@ export function ChatInterface() {
 
     try {
       const history = [...messages, userMsg];
-      const { reply, sources } = await sendChatMessage(trimmed, messages);
+      const { reply, sources } = await sendChatMessage.mutateAsync({
+        message: trimmed,
+        history: messages,
+      });
       const assistantMsg: ChatMessage = { role: "assistant", content: reply };
       setMessages((prev) => {
         const idx = prev.length; // index of the new assistant message
@@ -174,7 +179,7 @@ export function ChatInterface() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, messages]);
+  }, [isLoading, messages, sendChatMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {

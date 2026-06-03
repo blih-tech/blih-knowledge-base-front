@@ -3,9 +3,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import {
-  createTaskReport,
-  updateTaskReport,
-  deleteTaskReport,
   type TaskReport,
   type TaskReportFilters,
   type PeriodType,
@@ -13,7 +10,7 @@ import {
   type CreateTaskReportData,
 } from "@/lib/api/reports.api";
 import type { Department } from "@/lib/api/departments.api";
-import { useReports } from "@/hooks/queries";
+import { useReportMutations, useReports } from "@/hooks/queries";
 import { useDepartments } from "@/hooks/queries";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { Card } from "@/components/ui/card";
@@ -478,6 +475,7 @@ export default function AdminReportsPage() {
   const { user } = useAuth();
   const [view, setView] = useState<View>("list");
   const [selectedReport, setSelectedReport] = useState<TaskReport | null>(null);
+  const { createTaskReport, updateTaskReport, deleteTaskReport } = useReportMutations();
 
   // Filters
   const [filterPeriod, setFilterPeriod] = useState<PeriodType | "">("");
@@ -506,7 +504,7 @@ export default function AdminReportsPage() {
   const { departments } = useDepartments({ isActive: true });
 
   const handleCreate = async (data: CreateTaskReportData) => {
-    await createTaskReport(data);
+    await createTaskReport.mutateAsync(data);
     setView("list");
     setPage(1);
     invalidateReports();
@@ -514,7 +512,7 @@ export default function AdminReportsPage() {
 
   const handleUpdate = async (data: CreateTaskReportData) => {
     if (!selectedReport) return;
-    const updated = await updateTaskReport(selectedReport._id, data);
+    const updated = await updateTaskReport.mutateAsync({ id: selectedReport._id, data });
     setSelectedReport(updated);
     setView("detail");
     invalidateReports();
@@ -523,14 +521,14 @@ export default function AdminReportsPage() {
   const handleDelete = async () => {
     if (!selectedReport) return;
     if (!confirm("Delete this report? This cannot be undone.")) return;
-    await deleteTaskReport(selectedReport._id);
+    await deleteTaskReport.mutateAsync(selectedReport._id);
     setSelectedReport(null);
     setView("list");
     invalidateReports();
   };
 
   const canModify = (report: TaskReport) =>
-    user?.id === report.author?._id || user?.isSuperAdmin;
+    user?.id === report.author?._id || user?.isSuperAdmin === true;
 
   const hasFilters =
     filterPeriod || filterDept || filterStatus || myReportsOnly;

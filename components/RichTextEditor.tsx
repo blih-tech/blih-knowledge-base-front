@@ -131,7 +131,7 @@ export function RichTextEditor({
       externalContentVersion === 0
     )
       return;
-    editor.commands.setContent(value, false);
+    editor.commands.setContent(value, { emitUpdate: false });
     onChange(editor.getHTML());
     onChangeJson?.(editor.getJSON());
     // eslint-disable-next-line react-hooks/exhaustive-deps

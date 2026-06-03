@@ -2,14 +2,10 @@
 
 import { useState } from "react";
 import {
-  createDepartment,
-  updateDepartment,
-  deleteDepartment,
   type Department,
-  type DepartmentDetail,
 } from "@/lib/api/departments.api";
 import type { Employee } from "@/lib/api/employees.api";
-import { useDepartments, useEmployees } from "@/hooks/queries";
+import { useDepartmentMutations, useDepartments, useEmployees } from "@/hooks/queries";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +41,7 @@ function DepartmentModal({
   onSaved: (d: Department) => void;
 }) {
   const isEdit = !!department;
+  const { createDepartment, updateDepartment } = useDepartmentMutations();
   const [form, setForm] = useState({
     name: department?.name ?? "",
     description: department?.description ?? "",
@@ -65,8 +62,8 @@ function DepartmentModal({
         head: form.head || null,
       };
       const result = isEdit
-        ? await updateDepartment(department._id, payload)
-        : await createDepartment(payload);
+        ? await updateDepartment.mutateAsync({ id: department._id, data: payload })
+        : await createDepartment.mutateAsync(payload);
       onSaved(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save department");
@@ -171,6 +168,7 @@ function DepartmentCard({
   allEmployees: Employee[];
   onRefresh: () => void;
 }) {
+  const { deleteDepartment } = useDepartmentMutations();
   const [showEdit, setShowEdit] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -183,7 +181,7 @@ function DepartmentCard({
       return;
     setIsDeleting(true);
     try {
-      await deleteDepartment(department._id);
+      await deleteDepartment.mutateAsync(department._id);
       onRefresh();
     } finally {
       setIsDeleting(false);
@@ -303,7 +301,7 @@ export default function AdminDepartmentsPage() {
     ? departments
     : departments.filter((d) => d.isActive);
   const active = departments.filter((d) => d.isActive).length;
-  const error = deptError instanceof Error ? deptError.message : deptError ? String(deptError) : null;
+  const error = deptError;
 
   return (
     <div className="space-y-6">
