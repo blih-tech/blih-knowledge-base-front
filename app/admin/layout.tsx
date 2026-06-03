@@ -263,8 +263,66 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen flex bg-background">
+        {/* Sidebar skeleton */}
+        <div className="hidden md:flex w-[260px] flex-col border-r border-border bg-background p-4 gap-6">
+          {/* Logo */}
+          <div className="flex items-center gap-3 px-2">
+            <div className="w-8 h-8 rounded-lg bg-primary/15 skeleton-shimmer" />
+            <div className="space-y-1.5 flex-1">
+              <div className="h-3.5 w-24 rounded-md bg-muted skeleton-shimmer" />
+              <div className="h-2.5 w-16 rounded-md bg-muted/60 skeleton-shimmer" />
+            </div>
+          </div>
+          {/* Nav items */}
+          <div className="space-y-1.5 mt-2">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
+                <div className="w-4 h-4 rounded bg-muted skeleton-shimmer" />
+                <div className="h-3 rounded-md bg-muted skeleton-shimmer" style={{ width: `${50 + (i * 12) % 40}%` }} />
+              </div>
+            ))}
+          </div>
+          {/* Footer items */}
+          <div className="mt-auto space-y-1.5">
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
+              <div className="w-4 h-4 rounded bg-muted skeleton-shimmer" />
+              <div className="h-3 w-20 rounded-md bg-muted skeleton-shimmer" />
+            </div>
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
+              <div className="w-4 h-4 rounded bg-muted skeleton-shimmer" />
+              <div className="h-3 w-16 rounded-md bg-muted/60 skeleton-shimmer" />
+            </div>
+          </div>
+        </div>
+
+        {/* Main area */}
+        <div className="flex-1 flex flex-col">
+          {/* Header skeleton */}
+          <div className="h-14 border-b border-border flex items-center px-4 gap-3">
+            <div className="w-6 h-6 rounded bg-muted skeleton-shimmer" />
+            <div className="w-px h-4 bg-border" />
+            <div className="h-3 w-12 rounded-md bg-muted skeleton-shimmer" />
+            <div className="ml-auto flex items-center gap-2">
+              <div className="w-5 h-5 rounded-full bg-muted skeleton-shimmer" />
+              <div className="h-3 w-16 rounded-md bg-muted skeleton-shimmer hidden sm:block" />
+            </div>
+          </div>
+
+          {/* Content skeleton */}
+          <div className="flex-1 flex flex-col items-center justify-center gap-5 p-6">
+            <div className="relative">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+              <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-background animate-pulse" />
+            </div>
+            <div className="text-center space-y-1.5">
+              <p className="text-sm font-medium text-foreground">Loading dashboard</p>
+              <p className="text-xs text-muted-foreground">Verifying your credentials…</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

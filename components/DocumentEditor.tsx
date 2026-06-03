@@ -28,7 +28,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ChevronLeft, Save, Trash2, Loader2, Plus, History, Lock } from "lucide-react";
+import { ChevronLeft, Save, Trash2, Loader2, Plus, History, Lock, X } from "lucide-react";
 import { FileImportButton } from "./FileImportButton";
 
 // Sentinel value used for the "Unassigned" owner option in the radix Select
@@ -78,6 +78,7 @@ export function DocumentEditor({
 
   // ── Ownership state ────────────────────────────────────────────────────────
   const [owner, setOwner] = useState<string>(""); // user _id, or "" when unassigned
+  const [contributors, setContributors] = useState<string[]>([]); // user _ids
   const [fullDoc, setFullDoc] = useState<FullDocument | null>(null);
   const [users, setUsers] = useState<Employee[]>([]);
 
@@ -107,6 +108,7 @@ export function DocumentEditor({
           typeof doc.sectionId === "object" ? doc.sectionId._id : doc.sectionId,
         );
         setOwner(doc.owner?._id ?? "");
+        setContributors((doc.contributors ?? []).map((c) => c._id));
         setContentHtml(doc.contentHtml ?? "");
         if (doc.contentJson && Object.keys(doc.contentJson).length > 0) {
           setContentJson(doc.contentJson);
@@ -168,9 +170,14 @@ export function DocumentEditor({
       };
 
       if (documentId) {
-        await updateDocument(documentId, { ...base, owner: owner || null });
+        // Only send ownership/contributor fields when allowed to manage them —
+        // otherwise the backend would 403 a contributor's content-only edit.
+        const data = canManage
+          ? { ...base, owner: owner || null, contributors }
+          : base;
+        await updateDocument(documentId, data);
       } else {
-        await createDocument({ ...base, owner: owner || undefined });
+        await createDocument({ ...base, owner: owner || undefined, contributors });
       }
       onClose();
     } catch (err) {
@@ -284,16 +291,37 @@ export function DocumentEditor({
   const currentSections =
     categories.find((c) => c.id === selectedCategory)?.sections ?? [];
 
-  // ── Edit-restriction gating (mirrors the backend's canEditDoc rule) ──────────
+  // ── Permission gating (mirrors the backend's two-tier rule) ──────────────────
   const canManageAll = hasPermission("content:manage-all");
   const isOwner = !!fullDoc?.owner?._id && user?.id === fullDoc.owner._id;
-  // Creating is always allowed (route-guarded). For an existing doc: super-admins
-  // always; otherwise the doc must have an owner AND the caller is that owner or
-  // holds content:manage-all. Unowned existing docs → super-admins only.
-  const canEdit =
+  const isContributor =
+    !!user?.id && (fullDoc?.contributors ?? []).some((c) => c._id === user.id);
+  // "Manage" = delete, transfer ownership, change the contributor list. Creating is
+  // always allowed (route-guarded). For an existing doc: super-admins always;
+  // otherwise the owner or a content:manage-all holder. Unowned docs → super-admin only.
+  const canManage =
     !documentId ||
     isSuperAdmin ||
     (!!fullDoc?.owner?._id && (isOwner || canManageAll));
+  // "Edit content" = title/content edits + restore: managers plus listed contributors.
+  const canEditContent = canManage || isContributor;
+
+  // Resolve a user's name/email from the loaded users list, falling back to the
+  // populated owner/contributor refs (covers inactive users not in the dropdown).
+  const userRef = (id: string) => {
+    const emp = users.find((u) => u._id === id);
+    if (emp) return { _id: emp._id, name: emp.name, email: emp.email };
+    if (fullDoc?.owner?._id === id) return fullDoc.owner;
+    return fullDoc?.contributors?.find((c) => c._id === id) ?? null;
+  };
+
+  const addContributor = (id: string) => {
+    if (id && id !== owner && !contributors.includes(id)) {
+      setContributors([...contributors, id]);
+    }
+  };
+  const removeContributor = (id: string) =>
+    setContributors(contributors.filter((c) => c !== id));
 
   return (
     <div>
@@ -328,12 +356,12 @@ export function DocumentEditor({
             </TabsList>
           )}
           <TabsContent value="editor" className="space-y-6">
-          {!canEdit && (
+          {!canEditContent && (
             <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               <Lock className="w-4 h-4 mt-0.5 shrink-0" />
               <span>
-                You are not the owner of this document. Only the owner or an administrator
-                can edit it.
+                You can&rsquo;t edit this document. Only its owner, a contributor, or an
+                administrator can make changes.
               </span>
             </div>
           )}
@@ -454,7 +482,7 @@ export function DocumentEditor({
                 <Select
                   value={owner || NO_OWNER}
                   onValueChange={(v) => setOwner(v === NO_OWNER ? "" : v)}
-                  disabled={!canEdit}
+                  disabled={!canManage}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Unassigned" />
@@ -472,7 +500,8 @@ export function DocumentEditor({
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">
-                  The person responsible for this document.
+                  Defaults to the creator. Changing it transfers ownership; the previous
+                  owner becomes a contributor.
                 </p>
               </div>
 
@@ -499,10 +528,63 @@ export function DocumentEditor({
                 </div>
               )}
             </div>
+
+            {/* Contributors */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium mb-1.5">Contributors</label>
+              {canManage && (
+                <Select value="" onValueChange={addContributor}>
+                  <SelectTrigger className="md:max-w-md">
+                    <SelectValue placeholder="Add a contributor…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users
+                      .filter((u) => u._id !== owner && !contributors.includes(u._id))
+                      .map((u) => (
+                        <SelectItem key={u._id} value={u._id}>
+                          {u.name}
+                          <span className="text-muted-foreground ml-1.5 text-xs">{u.email}</span>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {contributors.length === 0 ? (
+                  <span className="text-xs text-muted-foreground">No contributors yet.</span>
+                ) : (
+                  contributors.map((id) => {
+                    const u = userRef(id);
+                    return (
+                      <span
+                        key={id}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/60 pl-1 pr-2 py-0.5"
+                      >
+                        <UserChip compact user={u} />
+                        <span className="text-xs text-foreground">{u?.name ?? "Unknown user"}</span>
+                        {canManage && (
+                          <button
+                            type="button"
+                            onClick={() => removeContributor(id)}
+                            className="text-muted-foreground hover:text-red-600"
+                            title="Remove contributor"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </span>
+                    );
+                  })
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Contributors can edit this document&rsquo;s content, but cannot delete it or change ownership.
+              </p>
+            </div>
           </Card>
 
           {/* Editor card */}
-          <Card className={`p-4 2xl:p-6 ${!canEdit ? "pointer-events-none opacity-60" : ""}`}>
+          <Card className={`p-4 2xl:p-6 ${!canEditContent ? "pointer-events-none opacity-60" : ""}`}>
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-base font-semibold text-foreground">
                 Content
@@ -530,11 +612,11 @@ export function DocumentEditor({
 
           {/* Actions */}
           <div className="flex gap-3 flex-wrap">
-            <Button onClick={handleSave} disabled={isSaving || !canEdit} className="gap-2">
+            <Button onClick={handleSave} disabled={isSaving || !canEditContent} className="gap-2">
               <Save className="w-4 h-4" />
               {isSaving ? "Saving…" : "Save Document"}
             </Button>
-            {documentId && canEdit && (
+            {documentId && canManage && (
               <Button
                 onClick={handleDelete}
                 variant="destructive"
@@ -551,7 +633,7 @@ export function DocumentEditor({
           </TabsContent>
           {documentId && (
             <TabsContent value="history">
-              <VersionHistory documentId={documentId} canRestore={canEdit} onRestored={loadDoc} />
+              <VersionHistory documentId={documentId} canRestore={canEditContent} onRestored={loadDoc} />
             </TabsContent>
           )}
         </Tabs>

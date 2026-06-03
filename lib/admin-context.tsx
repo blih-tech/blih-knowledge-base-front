@@ -46,6 +46,7 @@ interface AdminContextType {
     contentJson?: object;
     contentText?: string;
     owner?: string;
+    contributors?: string[];
   }) => Promise<DocSummary>;
   updateDocument: (id: string, data: object) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
@@ -121,6 +122,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     contentJson?: object;
     contentText?: string;
     owner?: string;
+    contributors?: string[];
   }): Promise<DocSummary> => {
     const created = await adminCreateDocument(data);
     await reload();

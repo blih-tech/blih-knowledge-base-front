@@ -48,6 +48,7 @@ export interface FullDocument {
   categoryId: { _id: string; name: string; slug: string };
   sectionId: { _id: string; name: string; slug: string };
   owner?: UserRef | null;
+  contributors?: UserRef[];
   createdBy?: UserRef | null;
   updatedBy?: UserRef | null;
   createdAt?: string;
