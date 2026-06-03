@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
 import { createPortal } from "react-dom";
 import {
   listEmployees, createEmployee, updateEmployee, assignClients,
@@ -494,13 +496,12 @@ function ResetPasswordModal({
 
 function EmployeeRow({
   employee, allClients, allDepartments,
-  onUpdated, onDeactivated,
+  onRefresh,
 }: {
   employee: Employee;
   allClients: Client[];
   allDepartments: Department[];
-  onUpdated: (e: Employee) => void;
-  onDeactivated: (id: string) => void;
+  onRefresh: () => void;
 }) {
   const [showAssign, setShowAssign] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -511,7 +512,7 @@ function EmployeeRow({
   const handleDeactivate = async () => {
     if (!confirm(`Deactivate ${employee.name}? They will lose access.`)) return;
     setIsDeactivating(true);
-    try { await deactivateEmployee(employee._id); onDeactivated(employee._id); }
+    try { await deactivateEmployee(employee._id); onRefresh(); }
     finally { setIsDeactivating(false); }
   };
 
@@ -521,8 +522,8 @@ function EmployeeRow({
     if (!confirm(`This will ${label} for ${employee.name}. Continue?`)) return;
     setIsTogglingRole(true);
     try {
-      const updated = await setEmployeeRole(employee._id, newRole);
-      onUpdated(updated);
+      await setEmployeeRole(employee._id, newRole);
+      onRefresh();
       if (newRole === "admin") {
         setTimeout(() => setShowAssign(true), 100);
       }
@@ -656,7 +657,7 @@ function EmployeeRow({
           employee={employee}
           allDepartments={allDepartments}
           onClose={() => setShowEdit(false)}
-          onSaved={(updated) => { onUpdated(updated); setShowEdit(false); }}
+          onSaved={() => { onRefresh(); setShowEdit(false); }}
         />,
         document.body,
       )}
@@ -665,7 +666,7 @@ function EmployeeRow({
           employee={employee}
           allClients={allClients}
           onClose={() => setShowAssign(false)}
-          onSaved={(updated) => { onUpdated(updated); setShowAssign(false); }}
+          onSaved={() => { onRefresh(); setShowAssign(false); }}
         />,
         document.body,
       )}
@@ -683,48 +684,44 @@ function EmployeeRow({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AdminEmployeesPage() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [allClients, setAllClients] = useState<Client[]>([]);
-  const [allDepartments, setAllDepartments] = useState<Department[]>([]);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterDept, setFilterDept] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("active");
   const [filterRole, setFilterRole] = useState<"all" | "admin" | "user">("all");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
-  const load = useCallback(async (params: {
-    search?: string; department?: string; isActive?: boolean; role?: string;
-  }) => {
-    setIsLoading(true); setError(null);
-    try {
-      const [emps, clients, depts] = await Promise.all([
-        listEmployees(params),
-        listClients({ limit: 100 }),
-        listDepartments({ isActive: true }),
-      ]);
-      setEmployees(emps);
-      setAllClients(clients.clients as unknown as Client[]);
-      setAllDepartments(depts);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load employees");
-    } finally { setIsLoading(false); }
-  }, []);
+  // ── Build query params from filter state ─────────────────────────────────
+  const empParams: Record<string, unknown> = {};
+  if (search.trim()) empParams.search = search.trim();
+  if (filterDept) empParams.department = filterDept;
+  if (filterStatus !== "all") empParams.isActive = filterStatus === "active";
+  if (filterRole !== "all") empParams.role = filterRole;
 
-  // Build query params from filter state
-  useEffect(() => {
-    const params: { search?: string; department?: string; isActive?: boolean; role?: string } = {};
-    if (search.trim()) params.search = search.trim();
-    if (filterDept) params.department = filterDept;
-    if (filterStatus !== "all") params.isActive = filterStatus === "active";
-    if (filterRole !== "all") params.role = filterRole;
+  // ── Queries ──────────────────────────────────────────────────────────────
+  const {
+    data: employees = [],
+    isLoading,
+    error: empError,
+  } = useQuery({
+    queryKey: queryKeys.employees.list(empParams),
+    queryFn: () => listEmployees(empParams as { search?: string; department?: string; isActive?: boolean; role?: string }),
+  });
 
-    const t = setTimeout(() => load(params), 300);
-    return () => clearTimeout(t);
-  }, [search, filterDept, filterStatus, filterRole, load]);
+  const { data: allClients = [] } = useQuery({
+    queryKey: queryKeys.clients.list({ limit: 100 }),
+    queryFn: () => listClients({ limit: 100 }).then((r) => r.clients as unknown as Client[]),
+  });
 
-  const active = employees.filter((e) => e.isActive).length;
+  const { data: allDepartments = [] } = useQuery({
+    queryKey: queryKeys.departments.list({ isActive: true }),
+    queryFn: () => listDepartments({ isActive: true }),
+  });
+
+  const invalidateEmployees = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+
+  const error = empError instanceof Error ? empError.message : empError ? String(empError) : null;
   const hasActiveFilters = filterDept !== "" || filterStatus !== "active" || filterRole !== "all";
 
   const selectClass = "h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer";
@@ -838,8 +835,7 @@ export default function AdminEmployeesPage() {
                     employee={emp}
                     allClients={allClients}
                     allDepartments={allDepartments}
-                    onUpdated={(updated) => setEmployees((prev) => prev.map((e) => e._id === updated._id ? updated : e))}
-                    onDeactivated={(id) => setEmployees((prev) => prev.map((e) => e._id === id ? { ...e, isActive: false } : e))}
+                    onRefresh={invalidateEmployees}
                   />
                 ))}
               </tbody>
@@ -853,8 +849,8 @@ export default function AdminEmployeesPage() {
           allClients={allClients}
           allDepartments={allDepartments}
           onClose={() => setShowCreate(false)}
-          onCreate={(emp) => {
-            setEmployees((prev) => [emp, ...prev]);
+          onCreate={() => {
+            invalidateEmployees();
             setShowCreate(false);
           }}
         />

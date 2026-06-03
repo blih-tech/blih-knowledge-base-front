@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import {
   listTaskReports,
@@ -357,14 +359,8 @@ type View = "list" | "detail" | "create" | "edit";
 
 export default function AdminReportsPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [view, setView] = useState<View>("list");
-  const [reports, setReports] = useState<TaskReport[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedReport, setSelectedReport] = useState<TaskReport | null>(null);
 
   // Filters
@@ -372,39 +368,43 @@ export default function AdminReportsPage() {
   const [filterDept, setFilterDept] = useState("");
   const [filterStatus, setFilterStatus] = useState<ReportStatus | "">("");
   const [myReportsOnly, setMyReportsOnly] = useState(false);
+  const [page, setPage] = useState(1);
 
-  const loadReports = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const filters: TaskReportFilters = { page, limit: 15 };
-      if (filterPeriod) filters.periodType = filterPeriod;
-      if (filterDept) filters.department = filterDept;
-      if (filterStatus) filters.status = filterStatus;
-      if (myReportsOnly && user?.id) filters.author = user.id;
+  // ── Build filters ───────────────────────────────────────────────────────
+  const reportFilters: TaskReportFilters = { page, limit: 15 };
+  if (filterPeriod) reportFilters.periodType = filterPeriod;
+  if (filterDept) reportFilters.department = filterDept;
+  if (filterStatus) reportFilters.status = filterStatus;
+  if (myReportsOnly && user?.id) reportFilters.author = user.id;
 
-      const [data, depts] = await Promise.all([
-        listTaskReports(filters),
-        departments.length ? Promise.resolve(departments) : listDepartments({ isActive: true }),
-      ]);
-      setReports(data.reports);
-      setTotal(data.pagination.total);
-      setTotalPages(data.pagination.totalPages);
-      if (!departments.length) setDepartments(depts);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load reports");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [page, filterPeriod, filterDept, filterStatus, myReportsOnly, user?.id, departments.length]);
+  // ── Queries ────────────────────────────────────────────────────────────
+  const {
+    data: reportsData,
+    isLoading,
+    error: queryError,
+  } = useQuery({
+    queryKey: queryKeys.reports.list(reportFilters as unknown as Record<string, unknown>),
+    queryFn: () => listTaskReports(reportFilters),
+  });
 
-  useEffect(() => { loadReports(); }, [loadReports]);
+  const { data: departments = [] } = useQuery({
+    queryKey: queryKeys.departments.list({ isActive: true }),
+    queryFn: () => listDepartments({ isActive: true }),
+  });
+
+  const invalidateReports = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.reports.all });
+
+  const reports = reportsData?.reports ?? [];
+  const total = reportsData?.pagination?.total ?? 0;
+  const totalPages = reportsData?.pagination?.totalPages ?? 1;
+  const error = queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null;
 
   const handleCreate = async (data: CreateTaskReportData) => {
     await createTaskReport(data);
     setView("list");
     setPage(1);
-    loadReports();
+    invalidateReports();
   };
 
   const handleUpdate = async (data: CreateTaskReportData) => {
@@ -412,7 +412,7 @@ export default function AdminReportsPage() {
     const updated = await updateTaskReport(selectedReport._id, data);
     setSelectedReport(updated);
     setView("detail");
-    loadReports();
+    invalidateReports();
   };
 
   const handleDelete = async () => {
@@ -421,7 +421,7 @@ export default function AdminReportsPage() {
     await deleteTaskReport(selectedReport._id);
     setSelectedReport(null);
     setView("list");
-    loadReports();
+    invalidateReports();
   };
 
   const canModify = (report: TaskReport) =>
@@ -602,7 +602,7 @@ export default function AdminReportsPage() {
       {error && (
         <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
           <AlertCircle className="w-4 h-4 shrink-0" /> {error}
-          <Button variant="outline" size="sm" className="ml-auto" onClick={loadReports}>Retry</Button>
+          <Button variant="outline" size="sm" className="ml-auto" onClick={() => invalidateReports()}>Retry</Button>
         </div>
       )}
 

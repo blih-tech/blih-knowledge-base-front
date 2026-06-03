@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, use } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -240,14 +242,12 @@ function ObservationCard({
   obs,
   clientId,
   contacts,
-  onUpdated,
-  onDeleted,
+  onRefresh,
 }: {
   obs: Observation;
   clientId: string;
   contacts: import("@/lib/api/clients.api").Contact[];
-  onUpdated: (o: Observation) => void;
-  onDeleted: (id: string) => void;
+  onRefresh: () => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(obs.content);
@@ -260,8 +260,8 @@ function ObservationCard({
   const handleUpdate = async () => {
     setIsBusy(true);
     try {
-      const updated = await updateObservation(clientId, obs._id, { content });
-      onUpdated(updated);
+      await updateObservation(clientId, obs._id, { content });
+      onRefresh();
       setIsEditing(false);
     } finally {
       setIsBusy(false);
@@ -273,7 +273,7 @@ function ObservationCard({
     setIsBusy(true);
     try {
       await deleteObservation(clientId, obs._id);
-      onDeleted(obs._id);
+      onRefresh();
     } finally {
       setIsBusy(false);
     }
@@ -363,34 +363,36 @@ function ObservationCard({
 export default function ClientProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { open: openAI } = useAdminAI();
-  const [client, setClient] = useState<Client | null>(null);
-  const [typeCounts, setTypeCounts] = useState<Record<string, number>>({});
-  const [observations, setObservations] = useState<Observation[]>([]);
-  const [contacts, setContacts] = useState<import("@/lib/api/clients.api").Contact[]>([]);
-  const [healthScore, setHealthScore] = useState(50);
   const [filterType, setFilterType] = useState<ObservationType | "all">("all");
-  const [contactFilter, setContactFilter] = useState<string | null>(null); // null = all, "" = company-level, contactId = specific
+  const [contactFilter, setContactFilter] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"observations" | "contacts">("observations");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      setIsLoading(true); setError(null);
-      try {
-        const [detail, obs] = await Promise.all([getClient(id), listObservations(id)]);
-        setClient(detail.client);
-        setTypeCounts(detail.typeCounts);
-        setContacts(detail.contacts ?? []);
-        setHealthScore(detail.healthScore ?? 50);
-        setObservations(obs);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load client");
-      } finally { setIsLoading(false); }
-    };
-    load();
-  }, [id]);
+  // ── Queries ─────────────────────────────────────────────────────────────
+  const {
+    data: detail,
+    isLoading,
+    error: detailError,
+  } = useQuery({
+    queryKey: queryKeys.clients.detail(id),
+    queryFn: () => getClient(id),
+  });
+
+  const { data: observations = [] } = useQuery({
+    queryKey: queryKeys.clients.observations(id),
+    queryFn: () => listObservations(id),
+  });
+
+  const invalidateDetail = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.clients.detail(id) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.clients.observations(id) });
+  };
+
+  const client = detail?.client ?? null;
+  const typeCounts = detail?.typeCounts ?? {};
+  const contacts = detail?.contacts ?? [];
+  const healthScore = detail?.healthScore ?? 50;
 
   const filtered = (() => {
     let result = filterType === "all" ? observations : observations.filter((o) => o.type === filterType);
@@ -410,11 +412,12 @@ export default function ClientProfilePage({ params }: { params: Promise<{ id: st
     );
   }
 
-  if (error || !client) {
+  if (detailError || !client) {
+    const errorMsg = detailError instanceof Error ? detailError.message : detailError ? String(detailError) : null;
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <AlertCircle className="w-8 h-8 text-red-400 mb-3" />
-        <p className="text-sm text-muted-foreground">{error || "Client not found"}</p>
+        <p className="text-sm text-muted-foreground">{errorMsg || "Client not found"}</p>
         <Button variant="outline" size="sm" className="mt-4" onClick={() => router.back()}>
           Go back
         </Button>
@@ -532,10 +535,7 @@ export default function ClientProfilePage({ params }: { params: Promise<{ id: st
           <AddObservationForm
             clientId={id}
             contacts={contacts}
-            onAdded={(obs) => {
-              setObservations((prev) => [obs, ...prev]);
-              setTypeCounts((tc) => ({ ...tc, [obs.type]: (tc[obs.type] ?? 0) + 1 }));
-            }}
+            onAdded={() => invalidateDetail()}
           />
 
           {/* Contact filter chips */}
@@ -582,12 +582,7 @@ export default function ClientProfilePage({ params }: { params: Promise<{ id: st
             <div className="space-y-3">
               {filtered.map((obs) => (
                 <ObservationCard key={obs._id} obs={obs} clientId={id} contacts={contacts}
-                  onUpdated={(u) => setObservations((prev) => prev.map((o) => o._id === u._id ? u : o))}
-                  onDeleted={(obsId) => setObservations((prev) => {
-                    const removed = prev.find((o) => o._id === obsId);
-                    if (removed) setTypeCounts((tc) => ({ ...tc, [removed.type]: Math.max(0, (tc[removed.type] ?? 1) - 1) }));
-                    return prev.filter((o) => o._id !== obsId);
-                  })}
+                  onRefresh={invalidateDetail}
                 />
               ))}
             </div>

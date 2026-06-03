@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   listClients, createClient, deleteClient,
   type Client, type ClientStatus, type ClientTier,
 } from "@/lib/api/clients.api";
+import { queryKeys } from "@/lib/query-keys";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,38 +135,44 @@ function CreateClientModal({ onClose, onCreate }: { onClose: () => void; onCreat
 
 export default function AdminClientsPage() {
   const router = useRouter();
-  const [data, setData] = useState<{ clients: Client[]; total: number } | null>(null);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ClientStatus | "">("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
-  const load = useCallback(async (q?: string, status?: string) => {
-    setIsLoading(true); setError(null);
-    try {
-      const result = await listClients({ search: q, status: status as ClientStatus || undefined, limit: 50 });
-      setData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load clients");
-    } finally { setIsLoading(false); }
-  }, []);
+  // ── Query ────────────────────────────────────────────────────────────────
+  const clientParams = {
+    search: search || undefined,
+    status: (statusFilter || undefined) as ClientStatus | undefined,
+    limit: 50,
+  };
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    const t = setTimeout(() => load(search || undefined, statusFilter || undefined), 300);
-    return () => clearTimeout(t);
-  }, [search, statusFilter, load]);
+  const {
+    data,
+    isLoading,
+    error: queryError,
+  } = useQuery({
+    queryKey: queryKeys.clients.list(clientParams as Record<string, unknown>),
+    queryFn: () => listClients(clientParams),
+  });
+
+  const invalidateClients = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.clients.all });
+
+  const error =
+    mutationError ?? (queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null);
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}" and all their data? This cannot be undone.`)) return;
     setDeletingId(id);
+    setMutationError(null);
     try {
       await deleteClient(id);
-      setData((d) => d ? { ...d, clients: d.clients.filter((c) => c._id !== id), total: d.total - 1 } : d);
+      invalidateClients();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete client");
+      setMutationError(err instanceof Error ? err.message : "Failed to delete client");
     } finally { setDeletingId(null); }
   };
 
@@ -279,7 +287,7 @@ export default function AdminClientsPage() {
         <CreateClientModal
           onClose={() => setShowCreate(false)}
           onCreate={(c) => {
-            setData((d) => d ? { clients: [c, ...d.clients], total: d.total + 1 } : { clients: [c], total: 1 });
+            invalidateClients();
             setShowCreate(false);
             router.push(`/admin/clients/${c._id}`);
           }}

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import {
   getMyProfile,
@@ -116,10 +118,10 @@ function PasswordStrength({ password }: { password: string }) {
 
 function ProfileSection({
   profile,
-  onUpdated,
+  onRefresh,
 }: {
   profile: MyProfile;
-  onUpdated: (p: MyProfile) => void;
+  onRefresh: () => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({ name: profile.name, position: profile.position });
@@ -136,7 +138,7 @@ function ProfileSection({
         name: form.name.trim(),
         position: form.position.trim(),
       });
-      onUpdated({ ...profile, ...updated });
+      onRefresh();
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
@@ -594,25 +596,21 @@ function AccountOverview({ profile }: { profile: MyProfile }) {
 
 export default function AdminProfilePage() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState<MyProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      setProfile(await getMyProfile());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load profile");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const {
+    data: profile,
+    isLoading,
+    error: queryError,
+  } = useQuery({
+    queryKey: queryKeys.profile.me,
+    queryFn: getMyProfile,
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const invalidateProfile = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.profile.me });
+
+  const error = queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null;
 
   if (isLoading) {
     return (
@@ -634,7 +632,7 @@ export default function AdminProfilePage() {
       <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
         <AlertCircle className="w-4 h-4 shrink-0" />
         {error ?? "Could not load profile."}
-        <Button variant="outline" size="sm" className="ml-auto" onClick={load}>
+        <Button variant="outline" size="sm" className="ml-auto" onClick={invalidateProfile}>
           Retry
         </Button>
       </div>
@@ -699,7 +697,7 @@ export default function AdminProfilePage() {
         {/* Left column — Profile Info */}
         <ProfileSection
           profile={profile}
-          onUpdated={(updated) => setProfile(updated)}
+          onRefresh={invalidateProfile}
         />
 
         {/* Right column — Security + Account */}
