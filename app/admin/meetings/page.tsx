@@ -1,0 +1,446 @@
+"use client";
+
+import { useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useMeetings, useMeetingMutations, useDepartments, useEmployees } from "@/hooks/queries";
+import type { MeetingMinute, MeetingMinuteFilters, MeetingStatus, ExternalAttendee } from "@/lib/api/meetings.api";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  CalendarCheck, Plus, Loader2, AlertCircle, Calendar, Building2,
+  ChevronLeft, Save, Send, Trash2, Edit3, Clock, User, FileText,
+  Filter, X, MapPin, Users, UserPlus, ListChecks,
+} from "lucide-react";
+
+type View = "list" | "create" | "edit" | "detail";
+
+const STATUS_OPTIONS: { value: MeetingStatus | ""; label: string }[] = [
+  { value: "", label: "All Status" },
+  { value: "draft", label: "Draft" },
+  { value: "published", label: "Published" },
+];
+
+export default function AdminMeetingsPage() {
+  const { user } = useAuth();
+  const [view, setView] = useState<View>("list");
+  const [selected, setSelected] = useState<MeetingMinute | null>(null);
+  const [filters, setFilters] = useState<MeetingMinuteFilters>({ page: 1, limit: 15 });
+
+  const { minutes, pagination, isLoading, error } = useMeetings(filters);
+  const { departments } = useDepartments();
+  const { createMeeting, updateMeeting, deleteMeeting } = useMeetingMutations();
+
+  const openCreate = () => { setSelected(null); setView("create"); };
+  const openEdit = (m: MeetingMinute) => { setSelected(m); setView("edit"); };
+  const openDetail = (m: MeetingMinute) => { setSelected(m); setView("detail"); };
+  const goList = () => { setSelected(null); setView("list"); };
+
+  const handleSave = async (data: Record<string, unknown>, status: MeetingStatus) => {
+    const payload = { ...data, status };
+    if (view === "create") {
+      await createMeeting.mutateAsync(payload);
+    } else if (selected) {
+      await updateMeeting.mutateAsync({ id: selected._id, data: payload });
+    }
+    goList();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this meeting minute?")) return;
+    await deleteMeeting.mutateAsync(id);
+    goList();
+  };
+
+  if (view === "create" || view === "edit") {
+    return (
+      <MeetingForm
+        initial={view === "edit" ? selected : null}
+        departments={departments}
+        onSave={handleSave}
+        onCancel={goList}
+        isSaving={createMeeting.isPending || updateMeeting.isPending}
+      />
+    );
+  }
+
+  if (view === "detail" && selected) {
+    return (
+      <MeetingDetail
+        minute={selected}
+        onBack={goList}
+        onEdit={() => openEdit(selected)}
+        onDelete={() => handleDelete(selected._id)}
+        isOwner={selected.author?._id === user?.id || user?.isSuperAdmin}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-primary/10"><CalendarCheck className="w-5 h-5 text-primary" /></div>
+          <div>
+            <h1 className="text-xl font-bold">Meeting Minutes</h1>
+            <p className="text-sm text-muted-foreground">Record and manage meeting minutes</p>
+          </div>
+        </div>
+        <Button onClick={openCreate} className="gap-2"><Plus className="w-4 h-4" />New Meeting</Button>
+      </div>
+
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Filter className="w-4 h-4 text-muted-foreground" />
+          <select
+            className="border rounded-lg px-3 py-2 text-sm bg-background"
+            value={filters.department || ""}
+            onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value || undefined, page: 1 }))}
+          >
+            <option value="">All Departments</option>
+            {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
+          </select>
+          <select
+            className="border rounded-lg px-3 py-2 text-sm bg-background"
+            value={filters.status || ""}
+            onChange={(e) => setFilters((f) => ({ ...f, status: (e.target.value || undefined) as MeetingStatus | undefined, page: 1 }))}
+          >
+            {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      </Card>
+
+      {/* List */}
+      {isLoading ? (
+        <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+      ) : error ? (
+        <Card className="p-6 text-center text-red-600"><AlertCircle className="w-5 h-5 mx-auto mb-2" />{error}</Card>
+      ) : minutes.length === 0 ? (
+        <Card className="p-12 text-center">
+          <CalendarCheck className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-muted-foreground">No meeting minutes found</p>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {minutes.map((m) => (
+            <Card
+              key={m._id}
+              className="p-4 cursor-pointer hover:border-primary/30 hover:shadow-md transition-all"
+              onClick={() => openDetail(m)}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-sm truncate">{m.title}</h3>
+                    <Badge variant={m.status === "published" ? "default" : "secondary"} className="text-[10px]">
+                      {m.status}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(m.date).toLocaleDateString()}</span>
+                    <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{m.department?.name}</span>
+                    <span className="flex items-center gap-1"><User className="w-3 h-3" />{m.author?.name}</span>
+                    <span className="flex items-center gap-1"><Users className="w-3 h-3" />{(m.attendees?.length || 0) + (m.externalAttendees?.length || 0)} attendees</span>
+                  </div>
+                </div>
+                {m.actionItems?.length > 0 && (
+                  <Badge variant="outline" className="text-[10px] shrink-0">
+                    <ListChecks className="w-3 h-3 mr-1" />{m.actionItems.length} actions
+                  </Badge>
+                )}
+              </div>
+            </Card>
+          ))}
+
+          {/* Pagination */}
+          {pagination.totalPages > 1 && (
+            <div className="flex justify-center gap-2 pt-4">
+              <Button
+                variant="outline" size="sm"
+                disabled={pagination.page <= 1}
+                onClick={() => setFilters((f) => ({ ...f, page: (f.page || 1) - 1 }))}
+              >Previous</Button>
+              <span className="text-sm text-muted-foreground py-2">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+              <Button
+                variant="outline" size="sm"
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => setFilters((f) => ({ ...f, page: (f.page || 1) + 1 }))}
+              >Next</Button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Detail View ──────────────────────────────────────────────────────────────
+
+function MeetingDetail({ minute: m, onBack, onEdit, onDelete, isOwner }: {
+  minute: MeetingMinute; onBack: () => void; onEdit: () => void; onDelete: () => void; isOwner: boolean;
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={onBack}><ChevronLeft className="w-4 h-4 mr-1" />Back</Button>
+        {isOwner && (
+          <div className="ml-auto flex gap-2">
+            <Button variant="outline" size="sm" onClick={onEdit}><Edit3 className="w-3.5 h-3.5 mr-1" />Edit</Button>
+            <Button variant="outline" size="sm" className="text-red-600" onClick={onDelete}><Trash2 className="w-3.5 h-3.5 mr-1" />Delete</Button>
+          </div>
+        )}
+      </div>
+
+      <Card className="p-6 space-y-5">
+        <div className="flex items-start justify-between">
+          <h2 className="text-lg font-bold">{m.title}</h2>
+          <Badge variant={m.status === "published" ? "default" : "secondary"}>{m.status}</Badge>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div><span className="text-muted-foreground block text-xs mb-1">Date</span>{new Date(m.date).toLocaleDateString()}</div>
+          {m.location && <div><span className="text-muted-foreground block text-xs mb-1">Location</span>{m.location}</div>}
+          <div><span className="text-muted-foreground block text-xs mb-1">Department</span>{m.department?.name}</div>
+          <div><span className="text-muted-foreground block text-xs mb-1">Recorded by</span>{m.author?.name}</div>
+        </div>
+
+        {m.publishedAt && (
+          <p className="text-xs text-muted-foreground"><Clock className="w-3 h-3 inline mr-1" />Published {new Date(m.publishedAt).toLocaleString()}</p>
+        )}
+
+        {/* Attendees */}
+        {(m.attendees?.length > 0 || m.externalAttendees?.length > 0) && (
+          <div>
+            <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5"><Users className="w-4 h-4" />Attendees</h3>
+            <div className="flex flex-wrap gap-2">
+              {m.attendees?.map((a) => (
+                <Badge key={a._id} variant="secondary" className="text-xs"><User className="w-3 h-3 mr-1" />{a.name}</Badge>
+              ))}
+              {m.externalAttendees?.map((a, i) => (
+                <Badge key={i} variant="outline" className="text-xs"><UserPlus className="w-3 h-3 mr-1" />{a.name}{a.organization ? ` (${a.organization})` : ""}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Agenda */}
+        {m.agenda?.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold mb-2">Agenda</h3>
+            <ol className="list-decimal list-inside space-y-1 text-sm text-muted-foreground">
+              {m.agenda.map((item, i) => <li key={i}>{item}</li>)}
+            </ol>
+          </div>
+        )}
+
+        {/* Content */}
+        <div>
+          <h3 className="text-sm font-semibold mb-2">Minutes</h3>
+          <div
+            className="prose prose-sm max-w-none [&_[data-text-size='h1']]:text-[1.75rem] [&_[data-text-size='h1']]:font-bold [&_[data-text-size='h2']]:text-[1.35rem] [&_[data-text-size='h2']]:font-semibold [&_[data-text-size='h3']]:text-[1.125rem] [&_[data-text-size='h3']]:font-semibold [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li>p]:m-0"
+            dangerouslySetInnerHTML={{ __html: m.content }}
+          />
+        </div>
+
+        {/* Action Items */}
+        {m.actionItems?.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5"><ListChecks className="w-4 h-4" />Action Items</h3>
+            <div className="border rounded-lg overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-secondary/50"><tr>
+                  <th className="text-left px-3 py-2 font-medium">Task</th>
+                  <th className="text-left px-3 py-2 font-medium">Assignee</th>
+                  <th className="text-left px-3 py-2 font-medium">Due Date</th>
+                  <th className="text-left px-3 py-2 font-medium">Status</th>
+                </tr></thead>
+                <tbody>{m.actionItems.map((ai) => (
+                  <tr key={ai._id} className="border-t">
+                    <td className="px-3 py-2">{ai.task}</td>
+                    <td className="px-3 py-2">{ai.assignee?.name}</td>
+                    <td className="px-3 py-2">{ai.dueDate ? new Date(ai.dueDate).toLocaleDateString() : "—"}</td>
+                    <td className="px-3 py-2">
+                      <Badge variant={ai.status === "done" ? "default" : ai.status === "in-progress" ? "secondary" : "outline"} className="text-[10px]">
+                        {ai.status}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// ─── Form ─────────────────────────────────────────────────────────────────────
+
+function MeetingForm({ initial, departments, onSave, onCancel, isSaving }: {
+  initial: MeetingMinute | null;
+  departments: { _id: string; name: string }[];
+  onSave: (data: Record<string, unknown>, status: MeetingStatus) => Promise<void>;
+  onCancel: () => void;
+  isSaving: boolean;
+}) {
+  const { employees } = useEmployees();
+  const [title, setTitle] = useState(initial?.title || "");
+  const [date, setDate] = useState(initial?.date ? initial.date.slice(0, 10) : new Date().toISOString().slice(0, 10));
+  const [location, setLocation] = useState(initial?.location || "");
+  const [department, setDepartment] = useState(initial?.department?._id || "");
+  const [attendees, setAttendees] = useState<string[]>(initial?.attendees?.map((a) => a._id) || []);
+  const [extAttendees, setExtAttendees] = useState<ExternalAttendee[]>(initial?.externalAttendees || []);
+  const [agenda, setAgenda] = useState<string[]>(initial?.agenda || [""]);
+  const [content, setContent] = useState(initial?.content || "");
+  const [actionItems, setActionItems] = useState(
+    initial?.actionItems?.map((ai) => ({
+      task: ai.task, assignee: ai.assignee?._id || "", dueDate: ai.dueDate?.slice(0, 10) || "", status: ai.status,
+    })) || []
+  );
+
+  const buildPayload = () => ({
+    title, date, location, department, attendees, externalAttendees: extAttendees,
+    agenda: agenda.filter(Boolean), content, actionItems: actionItems.filter((ai) => ai.task),
+  });
+
+  const addAgendaItem = () => setAgenda((a) => [...a, ""]);
+  const removeAgendaItem = (i: number) => setAgenda((a) => a.filter((_, idx) => idx !== i));
+  const updateAgendaItem = (i: number, v: string) => setAgenda((a) => a.map((item, idx) => idx === i ? v : item));
+
+  const addActionItem = () => setActionItems((a) => [...a, { task: "", assignee: "", dueDate: "", status: "pending" as const }]);
+  const removeActionItem = (i: number) => setActionItems((a) => a.filter((_, idx) => idx !== i));
+  const updateActionItem = (i: number, field: string, value: string) =>
+    setActionItems((a) => a.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
+
+  const addExtAttendee = () => setExtAttendees((a) => [...a, { name: "" }]);
+  const removeExtAttendee = (i: number) => setExtAttendees((a) => a.filter((_, idx) => idx !== i));
+  const updateExtAttendee = (i: number, field: string, value: string) =>
+    setExtAttendees((a) => a.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="sm" onClick={onCancel}><ChevronLeft className="w-4 h-4 mr-1" />Back</Button>
+        <h1 className="text-lg font-bold">{initial ? "Edit" : "New"} Meeting Minute</h1>
+      </div>
+
+      <Card className="p-6 space-y-5">
+        {/* Basic fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium mb-1 block">Title *</label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Weekly standup" />
+          </div>
+          <div>
+            <label className="text-sm font-medium mb-1 block">Date *</label>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-sm font-medium mb-1 block">Location</label>
+            <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Room 301 / Zoom link" />
+          </div>
+          <div>
+            <label className="text-sm font-medium mb-1 block">Department *</label>
+            <select className="w-full border rounded-lg px-3 py-2 text-sm bg-background" value={department} onChange={(e) => setDepartment(e.target.value)}>
+              <option value="">Select department</option>
+              {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Internal Attendees */}
+        <div>
+          <label className="text-sm font-medium mb-1 block">Internal Attendees</label>
+          <select
+            multiple
+            className="w-full border rounded-lg px-3 py-2 text-sm bg-background min-h-[100px]"
+            value={attendees}
+            onChange={(e) => setAttendees(Array.from(e.target.selectedOptions, (o) => o.value))}
+          >
+            {employees.map((emp) => <option key={emp._id} value={emp._id}>{emp.name} ({emp.email})</option>)}
+          </select>
+          <p className="text-xs text-muted-foreground mt-1">Hold Ctrl/Cmd to select multiple</p>
+        </div>
+
+        {/* External Attendees */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium">External Attendees</label>
+            <Button type="button" variant="outline" size="sm" onClick={addExtAttendee}><UserPlus className="w-3.5 h-3.5 mr-1" />Add</Button>
+          </div>
+          {extAttendees.map((ea, i) => (
+            <div key={i} className="flex gap-2 mb-2">
+              <Input placeholder="Name *" value={ea.name} onChange={(e) => updateExtAttendee(i, "name", e.target.value)} className="flex-1" />
+              <Input placeholder="Email" value={ea.email || ""} onChange={(e) => updateExtAttendee(i, "email", e.target.value)} className="flex-1" />
+              <Input placeholder="Organization" value={ea.organization || ""} onChange={(e) => updateExtAttendee(i, "organization", e.target.value)} className="flex-1" />
+              <Button type="button" variant="ghost" size="icon" onClick={() => removeExtAttendee(i)}><X className="w-4 h-4" /></Button>
+            </div>
+          ))}
+        </div>
+
+        {/* Agenda */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium">Agenda Items</label>
+            <Button type="button" variant="outline" size="sm" onClick={addAgendaItem}><Plus className="w-3.5 h-3.5 mr-1" />Add</Button>
+          </div>
+          {agenda.map((item, i) => (
+            <div key={i} className="flex gap-2 mb-2">
+              <span className="text-sm text-muted-foreground pt-2 w-6">{i + 1}.</span>
+              <Input value={item} onChange={(e) => updateAgendaItem(i, e.target.value)} placeholder="Agenda topic" className="flex-1" />
+              {agenda.length > 1 && <Button type="button" variant="ghost" size="icon" onClick={() => removeAgendaItem(i)}><X className="w-4 h-4" /></Button>}
+            </div>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div>
+          <label className="text-sm font-medium mb-1 block">Meeting Minutes *</label>
+          <RichTextEditor value={content} onChange={setContent} placeholder="Write the meeting minutes..." />
+        </div>
+
+        {/* Action Items */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-medium flex items-center gap-1.5"><ListChecks className="w-4 h-4" />Action Items</label>
+            <Button type="button" variant="outline" size="sm" onClick={addActionItem}><Plus className="w-3.5 h-3.5 mr-1" />Add</Button>
+          </div>
+          {actionItems.map((ai, i) => (
+            <div key={i} className="flex gap-2 mb-2 items-start">
+              <Input placeholder="Task *" value={ai.task} onChange={(e) => updateActionItem(i, "task", e.target.value)} className="flex-[2]" />
+              <select className="border rounded-lg px-2 py-2 text-sm bg-background flex-1" value={ai.assignee} onChange={(e) => updateActionItem(i, "assignee", e.target.value)}>
+                <option value="">Assignee</option>
+                {employees.map((emp) => <option key={emp._id} value={emp._id}>{emp.name}</option>)}
+              </select>
+              <Input type="date" value={ai.dueDate} onChange={(e) => updateActionItem(i, "dueDate", e.target.value)} className="flex-1" />
+              <select className="border rounded-lg px-2 py-2 text-sm bg-background w-28" value={ai.status} onChange={(e) => updateActionItem(i, "status", e.target.value)}>
+                <option value="pending">Pending</option>
+                <option value="in-progress">In Progress</option>
+                <option value="done">Done</option>
+              </select>
+              <Button type="button" variant="ghost" size="icon" onClick={() => removeActionItem(i)}><X className="w-4 h-4" /></Button>
+            </div>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-4 border-t">
+          <Button variant="outline" onClick={onCancel} disabled={isSaving}>Cancel</Button>
+          <Button variant="outline" onClick={() => onSave(buildPayload(), "draft")} disabled={isSaving || !title || !department || !content}>
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}Save Draft
+          </Button>
+          <Button onClick={() => onSave(buildPayload(), "published")} disabled={isSaving || !title || !department || !content}>
+            {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}Publish
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}

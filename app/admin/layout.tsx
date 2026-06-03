@@ -40,6 +40,7 @@ import {
   UserCheck,
   Building2,
   BarChart3,
+  CalendarCheck,
   UserCircle,
 } from "lucide-react";
 
@@ -59,6 +60,7 @@ const navItems: {
   { href: "/admin/departments",  label: "Departments",        icon: Building2,       permission: "departments:manage" },
   { href: "/admin/faq",          label: "FAQs",               icon: HelpCircle,      permission: "faq:manage" },
   { href: "/admin/reports",      label: "Reports",            icon: BarChart3,       permission: "reports:view" },
+  { href: "/admin/meetings",     label: "Meeting Minutes",    icon: CalendarCheck,   permission: "meetings:manage" },
 ];
 
 // ─── Admin Sidebar ────────────────────────────────────────────────────────────
