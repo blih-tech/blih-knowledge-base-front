@@ -64,14 +64,24 @@ const PERIOD_BADGE_COLORS: Record<PeriodType, string> = {
 
 const STATUS_BADGE: Record<ReportStatus, { cls: string; label: string }> = {
   draft: { cls: "bg-gray-100 text-gray-600 border-gray-200", label: "Draft" },
-  submitted: { cls: "bg-emerald-50 text-emerald-700 border-emerald-200", label: "Submitted" },
+  submitted: {
+    cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    label: "Submitted",
+  },
 };
 
 function formatDate(d: string) {
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return new Date(d).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
-function getDefaultDates(periodType: PeriodType): { start: string; end: string } {
+function getDefaultDates(periodType: PeriodType): {
+  start: string;
+  end: string;
+} {
   const now = new Date();
   const end = now.toISOString().slice(0, 10);
   const start = new Date(now);
@@ -83,7 +93,13 @@ function getDefaultDates(periodType: PeriodType): { start: string; end: string }
 
 // ─── Report Card ──────────────────────────────────────────────────────────────
 
-function ReportCard({ report, onClick }: { report: TaskReport; onClick: () => void }) {
+function ReportCard({
+  report,
+  onClick,
+}: {
+  report: TaskReport;
+  onClick: () => void;
+}) {
   const snippet = report.content.replace(/<[^>]*>/g, "").slice(0, 120);
   return (
     <Card
@@ -96,17 +112,25 @@ function ReportCard({ report, onClick }: { report: TaskReport; onClick: () => vo
             {report.title}
           </h3>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <Badge variant="outline" className={`text-[10px] py-0 ${PERIOD_BADGE_COLORS[report.periodType]}`}>
+            <Badge
+              variant="outline"
+              className={`text-[10px] py-0 ${PERIOD_BADGE_COLORS[report.periodType]}`}
+            >
               {report.periodType}
             </Badge>
-            <Badge variant="outline" className={`text-[10px] py-0 ${STATUS_BADGE[report.status].cls}`}>
+            <Badge
+              variant="outline"
+              className={`text-[10px] py-0 ${STATUS_BADGE[report.status].cls}`}
+            >
               {STATUS_BADGE[report.status].label}
             </Badge>
             <span className="text-[11px] text-muted-foreground flex items-center gap-1">
               <Building2 className="w-3 h-3" /> {report.department?.name}
             </span>
           </div>
-          <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{snippet || "No content"}</p>
+          <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+            {snippet || "No content"}
+          </p>
         </div>
         <div className="text-right shrink-0">
           <p className="text-[11px] text-muted-foreground flex items-center gap-1">
@@ -139,7 +163,12 @@ function ReportDetail({
 }) {
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
-      <Button variant="ghost" size="sm" className="gap-1 -ml-2 text-muted-foreground" onClick={onBack}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-1 -ml-2 text-muted-foreground"
+        onClick={onBack}
+      >
         <ChevronLeft className="w-4 h-4" /> Back to reports
       </Button>
 
@@ -148,22 +177,40 @@ function ReportDetail({
         <div className="p-6 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-lg font-bold text-foreground">{report.title}</h1>
+              <h1 className="text-lg font-bold text-foreground">
+                {report.title}
+              </h1>
               <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <Badge variant="outline" className={PERIOD_BADGE_COLORS[report.periodType]}>
+                <Badge
+                  variant="outline"
+                  className={PERIOD_BADGE_COLORS[report.periodType]}
+                >
                   {report.periodType}
                 </Badge>
-                <Badge variant="outline" className={STATUS_BADGE[report.status].cls}>
+                <Badge
+                  variant="outline"
+                  className={STATUS_BADGE[report.status].cls}
+                >
                   {STATUS_BADGE[report.status].label}
                 </Badge>
               </div>
             </div>
             {canModify && (
               <div className="flex gap-1.5 shrink-0">
-                <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={onEdit}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 text-xs"
+                  onClick={onEdit}
+                >
                   <Edit3 className="w-3 h-3" /> Edit
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1 text-xs text-red-600 hover:bg-red-50 hover:border-red-300" onClick={onDelete}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 text-xs text-red-600 hover:bg-red-50 hover:border-red-300"
+                  onClick={onDelete}
+                >
                   <Trash2 className="w-3 h-3" /> Delete
                 </Button>
               </div>
@@ -174,16 +221,24 @@ function ReportDetail({
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <User className="w-3.5 h-3.5" /> <span className="font-medium text-foreground">{report.author?.name}</span>
+              <User className="w-3.5 h-3.5" />{" "}
+              <span className="font-medium text-foreground">
+                {report.author?.name}
+              </span>
             </div>
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Building2 className="w-3.5 h-3.5" /> <span className="font-medium text-foreground">{report.department?.name}</span>
+              <Building2 className="w-3.5 h-3.5" />{" "}
+              <span className="font-medium text-foreground">
+                {report.department?.name}
+              </span>
             </div>
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Calendar className="w-3.5 h-3.5" /> {formatDate(report.periodStart)} — {formatDate(report.periodEnd)}
+              <Calendar className="w-3.5 h-3.5" />{" "}
+              {formatDate(report.periodStart)} — {formatDate(report.periodEnd)}
             </div>
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Clock className="w-3.5 h-3.5" /> Created {formatDate(report.createdAt)}
+              <Clock className="w-3.5 h-3.5" /> Created{" "}
+              {formatDate(report.createdAt)}
             </div>
           </div>
 
@@ -239,7 +294,12 @@ function ReportForm({
 
   const handlePeriodTypeChange = (pt: PeriodType) => {
     const dates = getDefaultDates(pt);
-    setForm((f) => ({ ...f, periodType: pt, periodStart: dates.start, periodEnd: dates.end }));
+    setForm((f) => ({
+      ...f,
+      periodType: pt,
+      periodStart: dates.start,
+      periodEnd: dates.end,
+    }));
   };
 
   const submit = async (status: ReportStatus) => {
@@ -256,7 +316,12 @@ function ReportForm({
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
-      <Button variant="ghost" size="sm" className="gap-1 -ml-2 text-muted-foreground" onClick={onCancel}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-1 -ml-2 text-muted-foreground"
+        onClick={onCancel}
+      >
         <ChevronLeft className="w-4 h-4" /> Cancel
       </Button>
 
@@ -264,16 +329,22 @@ function ReportForm({
         <div className="h-1 bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-600" />
         <div className="px-6 py-4 border-b bg-secondary/30 flex items-center gap-2">
           <FileText className="w-4 h-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold">{isEdit ? "Edit Report" : "New Task Report"}</h2>
+          <h2 className="text-sm font-semibold">
+            {isEdit ? "Edit Report" : "New Task Report"}
+          </h2>
         </div>
 
         <div className="p-6 space-y-5">
           {/* Title */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Title</label>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Title
+            </label>
             <Input
               value={form.title}
-              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, title: e.target.value }))
+              }
               placeholder="e.g. Marketing Weekly Report — Week 22"
               autoFocus
             />
@@ -282,10 +353,14 @@ function ReportForm({
           {/* Period Type + Dates */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Period Type</label>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Period Type
+              </label>
               <select
                 value={form.periodType}
-                onChange={(e) => handlePeriodTypeChange(e.target.value as PeriodType)}
+                onChange={(e) =>
+                  handlePeriodTypeChange(e.target.value as PeriodType)
+                }
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <option value="weekly">Weekly</option>
@@ -294,33 +369,57 @@ function ReportForm({
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Start Date</label>
-              <Input type="date" value={form.periodStart} onChange={(e) => setForm((f) => ({ ...f, periodStart: e.target.value }))} />
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Start Date
+              </label>
+              <Input
+                type="date"
+                value={form.periodStart}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, periodStart: e.target.value }))
+                }
+              />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">End Date</label>
-              <Input type="date" value={form.periodEnd} onChange={(e) => setForm((f) => ({ ...f, periodEnd: e.target.value }))} />
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                End Date
+              </label>
+              <Input
+                type="date"
+                value={form.periodEnd}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, periodEnd: e.target.value }))
+                }
+              />
             </div>
           </div>
 
           {/* Department */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Department</label>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Department
+            </label>
             <select
               value={form.department}
-              onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, department: e.target.value }))
+              }
               className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="">Select department</option>
               {departments.map((d) => (
-                <option key={d._id} value={d._id}>{d.name}</option>
+                <option key={d._id} value={d._id}>
+                  {d.name}
+                </option>
               ))}
             </select>
           </div>
 
           {/* Content */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Report Content</label>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Report Content
+            </label>
             <div className="border border-input rounded-lg overflow-hidden">
               <RichTextEditor
                 value={form.content}
@@ -338,12 +437,31 @@ function ReportForm({
 
           {/* Actions */}
           <div className="flex items-center gap-2 pt-1">
-            <Button size="sm" variant="outline" className="gap-1.5" disabled={isSaving} onClick={() => submit("draft")}>
-              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              disabled={isSaving}
+              onClick={() => submit("draft")}
+            >
+              {isSaving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
               Save as Draft
             </Button>
-            <Button size="sm" className="gap-1.5" disabled={isSaving || !form.title.trim() || !form.content.trim()} onClick={() => submit("submitted")}>
-              {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            <Button
+              size="sm"
+              className="gap-1.5"
+              disabled={isSaving || !form.title.trim() || !form.content.trim()}
+              onClick={() => submit("submitted")}
+            >
+              {isSaving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Send className="w-3.5 h-3.5" />
+              )}
               Submit Report
             </Button>
           </div>
@@ -383,7 +501,9 @@ export default function AdminReportsPage() {
     isLoading,
     error: queryError,
   } = useQuery({
-    queryKey: queryKeys.reports.list(reportFilters as unknown as Record<string, unknown>),
+    queryKey: queryKeys.reports.list(
+      reportFilters as unknown as Record<string, unknown>,
+    ),
     queryFn: () => listTaskReports(reportFilters),
   });
 
@@ -398,7 +518,12 @@ export default function AdminReportsPage() {
   const reports = reportsData?.reports ?? [];
   const total = reportsData?.pagination?.total ?? 0;
   const totalPages = reportsData?.pagination?.totalPages ?? 1;
-  const error = queryError instanceof Error ? queryError.message : queryError ? String(queryError) : null;
+  const error =
+    queryError instanceof Error
+      ? queryError.message
+      : queryError
+        ? String(queryError)
+        : null;
 
   const handleCreate = async (data: CreateTaskReportData) => {
     await createTaskReport(data);
@@ -427,14 +552,18 @@ export default function AdminReportsPage() {
   const canModify = (report: TaskReport) =>
     user?.id === report.author?._id || user?.isSuperAdmin;
 
-  const hasFilters = filterPeriod || filterDept || filterStatus || myReportsOnly;
+  const hasFilters =
+    filterPeriod || filterDept || filterStatus || myReportsOnly;
 
   // ── Detail View ──
   if (view === "detail" && selectedReport) {
     return (
       <ReportDetail
         report={selectedReport}
-        onBack={() => { setSelectedReport(null); setView("list"); }}
+        onBack={() => {
+          setSelectedReport(null);
+          setView("list");
+        }}
         onEdit={() => setView("edit")}
         onDelete={handleDelete}
         canModify={canModify(selectedReport)}
@@ -449,7 +578,9 @@ export default function AdminReportsPage() {
         report={view === "edit" ? selectedReport : null}
         departments={departments}
         onSave={view === "edit" ? handleUpdate : handleCreate}
-        onCancel={() => { setView(selectedReport ? "detail" : "list"); }}
+        onCancel={() => {
+          setView(selectedReport ? "detail" : "list");
+        }}
       />
     );
   }
@@ -474,7 +605,13 @@ export default function AdminReportsPage() {
             Department task reports — weekly, monthly, and quarterly
           </p>
         </div>
-        <Button className="gap-1.5 shadow-sm" onClick={() => { setSelectedReport(null); setView("create"); }}>
+        <Button
+          className="gap-1.5 shadow-sm"
+          onClick={() => {
+            setSelectedReport(null);
+            setView("create");
+          }}
+        >
           <Plus className="w-4 h-4" /> New Report
         </Button>
       </div>
@@ -482,7 +619,10 @@ export default function AdminReportsPage() {
       {/* ── View tabs ── */}
       <div className="flex items-center gap-1 p-1 bg-secondary rounded-lg w-fit">
         <button
-          onClick={() => { setMyReportsOnly(false); setPage(1); }}
+          onClick={() => {
+            setMyReportsOnly(false);
+            setPage(1);
+          }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
             !myReportsOnly
               ? "bg-white text-foreground shadow-sm"
@@ -492,7 +632,10 @@ export default function AdminReportsPage() {
           All Reports
         </button>
         <button
-          onClick={() => { setMyReportsOnly(true); setPage(1); }}
+          onClick={() => {
+            setMyReportsOnly(true);
+            setPage(1);
+          }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
             myReportsOnly
               ? "bg-white text-foreground shadow-sm"
@@ -510,8 +653,12 @@ export default function AdminReportsPage() {
             <FileText className="w-4 h-4 text-muted-foreground" />
           </div>
           <div>
-            <p className="text-lg font-bold text-foreground leading-none">{total}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Total Reports</p>
+            <p className="text-lg font-bold text-foreground leading-none">
+              {total}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Total Reports
+            </p>
           </div>
         </Card>
         <Card className="px-4 py-3 border flex flex-row items-center gap-3">
@@ -519,7 +666,9 @@ export default function AdminReportsPage() {
             <Edit3 className="w-4 h-4 text-gray-500" />
           </div>
           <div>
-            <p className="text-lg font-bold text-foreground leading-none">{draftCount}</p>
+            <p className="text-lg font-bold text-foreground leading-none">
+              {draftCount}
+            </p>
             <p className="text-[11px] text-muted-foreground mt-0.5">Drafts</p>
           </div>
         </Card>
@@ -528,8 +677,12 @@ export default function AdminReportsPage() {
             <Send className="w-4 h-4 text-emerald-600" />
           </div>
           <div>
-            <p className="text-lg font-bold text-foreground leading-none">{submittedCount}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Submitted</p>
+            <p className="text-lg font-bold text-foreground leading-none">
+              {submittedCount}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Submitted
+            </p>
           </div>
         </Card>
       </div>
@@ -542,7 +695,10 @@ export default function AdminReportsPage() {
             {PERIOD_TYPES.map((p) => (
               <button
                 key={p.value}
-                onClick={() => { setFilterPeriod(p.value as PeriodType | ""); setPage(1); }}
+                onClick={() => {
+                  setFilterPeriod(p.value as PeriodType | "");
+                  setPage(1);
+                }}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                   filterPeriod === p.value
                     ? "bg-white text-foreground shadow-sm"
@@ -560,7 +716,13 @@ export default function AdminReportsPage() {
               variant="ghost"
               size="sm"
               className="h-7 text-xs gap-1 text-muted-foreground hover:text-red-600"
-              onClick={() => { setFilterPeriod(""); setFilterDept(""); setFilterStatus(""); setMyReportsOnly(false); setPage(1); }}
+              onClick={() => {
+                setFilterPeriod("");
+                setFilterDept("");
+                setFilterStatus("");
+                setMyReportsOnly(false);
+                setPage(1);
+              }}
             >
               <X className="w-3 h-3" /> Clear filters
             </Button>
@@ -572,12 +734,17 @@ export default function AdminReportsPage() {
               <Building2 className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <select
                 value={filterDept}
-                onChange={(e) => { setFilterDept(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setFilterDept(e.target.value);
+                  setPage(1);
+                }}
                 className="h-8 rounded-lg border border-input bg-background pl-8 pr-6 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer appearance-none"
               >
                 <option value="">All Departments</option>
                 {departments.map((d) => (
-                  <option key={d._id} value={d._id}>{d.name}</option>
+                  <option key={d._id} value={d._id}>
+                    {d.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -586,11 +753,16 @@ export default function AdminReportsPage() {
               <Clock className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <select
                 value={filterStatus}
-                onChange={(e) => { setFilterStatus(e.target.value as ReportStatus | ""); setPage(1); }}
+                onChange={(e) => {
+                  setFilterStatus(e.target.value as ReportStatus | "");
+                  setPage(1);
+                }}
                 className="h-8 rounded-lg border border-input bg-background pl-8 pr-6 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer appearance-none"
               >
                 {STATUS_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -602,7 +774,14 @@ export default function AdminReportsPage() {
       {error && (
         <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
           <AlertCircle className="w-4 h-4 shrink-0" /> {error}
-          <Button variant="outline" size="sm" className="ml-auto" onClick={() => invalidateReports()}>Retry</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            onClick={() => invalidateReports()}
+          >
+            Retry
+          </Button>
         </div>
       )}
 
@@ -610,7 +789,10 @@ export default function AdminReportsPage() {
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-[88px] rounded-xl bg-muted/60 animate-pulse" />
+            <div
+              key={i}
+              className="h-[88px] rounded-xl bg-muted/60 animate-pulse"
+            />
           ))}
         </div>
       ) : reports.length === 0 ? (
@@ -618,12 +800,20 @@ export default function AdminReportsPage() {
           <div className="mx-auto w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-4">
             <FileText className="w-6 h-6 text-muted-foreground/50" />
           </div>
-          <p className="text-sm font-semibold text-foreground">No reports found</p>
+          <p className="text-sm font-semibold text-foreground">
+            No reports found
+          </p>
           <p className="text-xs text-muted-foreground mt-1 max-w-[240px] mx-auto">
-            {hasFilters ? "Try adjusting your filters to find reports." : "Create your first task report to get started."}
+            {hasFilters
+              ? "Try adjusting your filters to find reports."
+              : "Create your first task report to get started."}
           </p>
           {!hasFilters && (
-            <Button size="sm" className="mt-5 gap-1.5" onClick={() => setView("create")}>
+            <Button
+              size="sm"
+              className="mt-5 gap-1.5"
+              onClick={() => setView("create")}
+            >
               <Plus className="w-4 h-4" /> Create Report
             </Button>
           )}
@@ -633,21 +823,43 @@ export default function AdminReportsPage() {
           {/* Report list */}
           <div className="space-y-2.5">
             {reports.map((r) => (
-              <ReportCard key={r._id} report={r} onClick={() => { setSelectedReport(r); setView("detail"); }} />
+              <ReportCard
+                key={r._id}
+                report={r}
+                onClick={() => {
+                  setSelectedReport(r);
+                  setView("detail");
+                }}
+              />
             ))}
           </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-3 pt-2">
-              <Button variant="outline" size="sm" className="text-xs" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+              >
                 ← Previous
               </Button>
               <span className="text-xs text-muted-foreground tabular-nums">
-                Page <span className="font-medium text-foreground">{page}</span> of{" "}
-                <span className="font-medium text-foreground">{totalPages}</span>
+                Page <span className="font-medium text-foreground">{page}</span>{" "}
+                of{" "}
+                <span className="font-medium text-foreground">
+                  {totalPages}
+                </span>
               </span>
-              <Button variant="outline" size="sm" className="text-xs" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
                 Next →
               </Button>
             </div>

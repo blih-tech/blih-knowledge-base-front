@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 import { History, Eye, RotateCcw, Loader2 } from "lucide-react";
 import {
   adminGetDocumentVersions,
   adminGetDocumentVersion,
+  adminRestoreDocumentVersion,
   type DocumentVersion,
   type DocumentVersionDetail,
 } from "@/lib/api/documents.api";
-import { useAdmin } from "@/lib/admin-context";
+import { queryKeys } from "@/lib/query-keys";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -42,11 +44,7 @@ interface VersionHistoryProps {
 }
 
 export function VersionHistory({ documentId, canRestore, onRestored }: VersionHistoryProps) {
-  const { restoreDocumentVersion } = useAdmin();
-
-  const [versions, setVersions] = useState<DocumentVersion[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   // Preview dialog
   const [preview, setPreview] = useState<DocumentVersionDetail | null>(null);
@@ -57,19 +55,21 @@ export function VersionHistory({ documentId, canRestore, onRestored }: VersionHi
   const [restoreTarget, setRestoreTarget] = useState<DocumentVersion | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
 
-  const loadVersions = () => {
-    setIsLoading(true);
-    setError(null);
-    adminGetDocumentVersions(documentId)
-      .then(setVersions)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load version history"))
-      .finally(() => setIsLoading(false));
-  };
+  // ── Fetch versions via React Query ─────────────────────────────────────────
+  const {
+    data: versions = [],
+    isLoading,
+    error: queryError,
+  } = useQuery({
+    queryKey: queryKeys.documents.versions(documentId),
+    queryFn: () => adminGetDocumentVersions(documentId),
+  });
 
-  useEffect(() => {
-    loadVersions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [documentId]);
+  const error = queryError instanceof Error
+    ? queryError.message
+    : queryError
+      ? String(queryError)
+      : null;
 
   const openPreview = (version: DocumentVersion) => {
     setPreviewOpen(true);
@@ -88,11 +88,14 @@ export function VersionHistory({ documentId, canRestore, onRestored }: VersionHi
     if (!restoreTarget) return;
     setIsRestoring(true);
     try {
-      await restoreDocumentVersion(documentId, restoreTarget._id);
+      await adminRestoreDocumentVersion(documentId, restoreTarget._id);
       toast.success(`Restored version v${restoreTarget.version}`);
       setRestoreTarget(null);
+      // Invalidate all related caches
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.versions(documentId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.detail(documentId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.tree });
       onRestored();
-      loadVersions();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Restore failed");
     } finally {

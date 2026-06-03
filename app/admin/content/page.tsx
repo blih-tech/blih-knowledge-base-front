@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAdmin } from "@/lib/admin-context";
+import { useDocumentTree } from "@/hooks/use-document-tree";
 import { DocumentEditor } from "@/components/DocumentEditor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Search, Edit2 } from "lucide-react";
 
 function ContentManagementContent() {
-  const { categories, isLoading } = useAdmin();
+  const { categories, isLoading } = useDocumentTree();
   const [searchQuery, setSearchQuery] = useState("");
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);

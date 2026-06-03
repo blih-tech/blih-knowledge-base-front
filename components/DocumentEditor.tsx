@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, formatDistanceToNow } from "date-fns";
-import { useAdmin } from "@/lib/admin-context";
+import { useDocumentTree } from "@/hooks/use-document-tree";
 import { useAuth } from "@/hooks/use-auth";
+import { queryKeys } from "@/lib/query-keys";
 import { adminGetDocumentById, type FullDocument } from "@/lib/api/documents.api";
 import { listEmployees, type Employee } from "@/lib/api/employees.api";
 import { RichTextEditor } from "./RichTextEditor";
@@ -54,8 +56,9 @@ export function DocumentEditor({
   onClose,
 }: DocumentEditorProps) {
   const { categories, createCategory, createSection, createDocument, updateDocument, deleteDocument } =
-    useAdmin();
+    useDocumentTree();
   const { user, isSuperAdmin, hasPermission } = useAuth();
+  const queryClient = useQueryClient();
 
   const [title, setTitle] = useState("");
   const [docId, setDocId] = useState("");
@@ -73,14 +76,12 @@ export function DocumentEditor({
   const [contentVersion, setContentVersion] = useState(0); // bumped on file import to sync editor
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoadingDoc, setIsLoadingDoc] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // ── Ownership state ────────────────────────────────────────────────────────
   const [owner, setOwner] = useState<string>(""); // user _id, or "" when unassigned
   const [contributors, setContributors] = useState<string[]>([]); // user _ids
   const [fullDoc, setFullDoc] = useState<FullDocument | null>(null);
-  const [users, setUsers] = useState<Employee[]>([]);
 
   // ── "Add new" dialog state ─────────────────────────────────────────────────
   const [showNewCategoryDialog, setShowNewCategoryDialog] = useState(false);
@@ -90,43 +91,48 @@ export function DocumentEditor({
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Fetch full document content when editing (also re-run after a version restore)
-  const loadDoc = useCallback(() => {
-    if (!documentId) return;
-    setIsLoadingDoc(true);
-    adminGetDocumentById(documentId)
-      .then((doc) => {
-        setFullDoc(doc);
-        setTitle(doc.title);
-        setDocId(doc.docId ?? "");
-        setSelectedCategory(
-          typeof doc.categoryId === "object"
-            ? doc.categoryId._id
-            : doc.categoryId,
-        );
-        setSelectedSection(
-          typeof doc.sectionId === "object" ? doc.sectionId._id : doc.sectionId,
-        );
-        setOwner(doc.owner?._id ?? "");
-        setContributors((doc.contributors ?? []).map((c) => c._id));
-        setContentHtml(doc.contentHtml ?? "");
-        if (doc.contentJson && Object.keys(doc.contentJson).length > 0) {
-          setContentJson(doc.contentJson);
-        }
-        setContentVersion((v) => v + 1); // re-sync RichTextEditor with loaded content
-      })
-      .catch(() => setSaveError("Failed to load document content"))
-      .finally(() => setIsLoadingDoc(false));
-  }, [documentId]);
+  // ── Fetch document detail via React Query ──────────────────────────────────
+  const { data: fetchedDoc, isLoading: isLoadingDoc } = useQuery({
+    queryKey: queryKeys.documents.detail(documentId!),
+    queryFn: () => adminGetDocumentById(documentId!),
+    enabled: !!documentId,
+  });
 
-  useEffect(() => { loadDoc(); }, [loadDoc]);
-
-  // Load active users once for the owner dropdown
+  // Sync fetched document into local form state
   useEffect(() => {
-    listEmployees({ isActive: true })
-      .then(setUsers)
-      .catch(() => { /* non-fatal — owner dropdown just stays empty */ });
-  }, []);
+    if (!fetchedDoc) return;
+    setFullDoc(fetchedDoc);
+    setTitle(fetchedDoc.title);
+    setDocId(fetchedDoc.docId ?? "");
+    setSelectedCategory(
+      typeof fetchedDoc.categoryId === "object"
+        ? fetchedDoc.categoryId._id
+        : fetchedDoc.categoryId,
+    );
+    setSelectedSection(
+      typeof fetchedDoc.sectionId === "object" ? fetchedDoc.sectionId._id : fetchedDoc.sectionId,
+    );
+    setOwner(fetchedDoc.owner?._id ?? "");
+    setContributors((fetchedDoc.contributors ?? []).map((c) => c._id));
+    setContentHtml(fetchedDoc.contentHtml ?? "");
+    if (fetchedDoc.contentJson && Object.keys(fetchedDoc.contentJson).length > 0) {
+      setContentJson(fetchedDoc.contentJson);
+    }
+    setContentVersion((v) => v + 1);
+  }, [fetchedDoc]);
+
+  // Reload document (for version restore)
+  const loadDoc = () => {
+    if (documentId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.documents.detail(documentId) });
+    }
+  };
+
+  // ── Fetch active users for owner dropdown via React Query ──────────────────
+  const { data: users = [] } = useQuery<Employee[]>({
+    queryKey: queryKeys.employees.list({ isActive: true }),
+    queryFn: () => listEmployees({ isActive: true }),
+  });
 
   const validate = () => {
     const e: Record<string, string> = {};

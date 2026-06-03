@@ -23,8 +23,10 @@ export const queryKeys = {
       ["departments", "list", filters] as const,
   },
   documents: {
+    all: ["documents"] as const,
     tree: ["documents", "tree"] as const,
     detail: (id: string) => ["documents", "detail", id] as const,
+    versions: (docId: string) => ["documents", docId, "versions"] as const,
   },
   faq: {
     all: ["faq"] as const,
@@ -36,5 +38,7 @@ export const queryKeys = {
     list: (filters: Record<string, unknown>) =>
       ["reports", "list", filters] as const,
   },
-  profile: ["profile"] as const,
+  profile: {
+    me: ["profile", "me"] as const,
+  },
 };

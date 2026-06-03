@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { useAuth } from "@/hooks/use-auth";
-import { AdminProvider } from "@/lib/admin-context";
+
 import { AdminAIProvider, useAdminAI } from "@/lib/admin-ai-context";
 import { AdminChatInterface } from "@/components/AdminChatInterface";
 import type { Permission } from "@/lib/permissions";
@@ -371,7 +371,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <AdminAIProvider>
       <AdminShell>
-        <AdminProvider>{children}</AdminProvider>
+        {children}
       </AdminShell>
     </AdminAIProvider>
   );

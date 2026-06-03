@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAdmin } from "@/lib/admin-context";
+import { useDocumentTree } from "@/hooks/use-document-tree";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,7 +37,7 @@ function StructureManagementContent() {
     updateSection,
     deleteCategory,
     deleteSection,
-  } = useAdmin();
+  } = useDocumentTree();
 
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
   const [expandedSec, setExpandedSec] = useState<string | null>(null);

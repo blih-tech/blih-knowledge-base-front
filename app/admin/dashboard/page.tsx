@@ -1,13 +1,13 @@
 "use client";
 
-import { useAdmin } from "@/lib/admin-context";
+import { useDocumentTree } from "@/hooks/use-document-tree";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, Folder, BookOpen, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 function DashboardContent() {
-  const { categories, isLoading } = useAdmin();
+  const { categories, isLoading } = useDocumentTree();
 
   const totalDocuments = categories.reduce(
     (acc, cat) => acc + cat.sections.reduce((s, sec) => s + sec.documents.length, 0),
