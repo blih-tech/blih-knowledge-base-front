@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { format, formatDistanceToNow } from "date-fns";
 import { useAdmin } from "@/lib/admin-context";
-import { adminGetDocumentById } from "@/lib/api/documents.api";
+import { useAuth } from "@/hooks/use-auth";
+import { adminGetDocumentById, type FullDocument } from "@/lib/api/documents.api";
+import { listEmployees, type Employee } from "@/lib/api/employees.api";
 import { RichTextEditor } from "./RichTextEditor";
+import { UserChip } from "@/components/UserChip";
+import { VersionHistory } from "@/components/VersionHistory";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,8 +27,12 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ChevronLeft, Save, Trash2, Loader2, Plus } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ChevronLeft, Save, Trash2, Loader2, Plus, History, Lock } from "lucide-react";
 import { FileImportButton } from "./FileImportButton";
+
+// Sentinel value used for the "Unassigned" owner option in the radix Select
+const NO_OWNER = "__no_owner__";
 
 // Sentinel value used to detect "Add new…" selection in radix Select
 const ADD_NEW_CATEGORY = "__add_new_category__";
@@ -46,6 +55,7 @@ export function DocumentEditor({
 }: DocumentEditorProps) {
   const { categories, createCategory, createSection, createDocument, updateDocument, deleteDocument } =
     useAdmin();
+  const { user, isSuperAdmin, hasPermission } = useAuth();
 
   const [title, setTitle] = useState("");
   const [docId, setDocId] = useState("");
@@ -66,6 +76,11 @@ export function DocumentEditor({
   const [isLoadingDoc, setIsLoadingDoc] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // ── Ownership state ────────────────────────────────────────────────────────
+  const [owner, setOwner] = useState<string>(""); // user _id, or "" when unassigned
+  const [fullDoc, setFullDoc] = useState<FullDocument | null>(null);
+  const [users, setUsers] = useState<Employee[]>([]);
+
   // ── "Add new" dialog state ─────────────────────────────────────────────────
   const [showNewCategoryDialog, setShowNewCategoryDialog] = useState(false);
   const [showNewSectionDialog, setShowNewSectionDialog] = useState(false);
@@ -74,12 +89,13 @@ export function DocumentEditor({
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Fetch full document content when editing
-  useEffect(() => {
+  // Fetch full document content when editing (also re-run after a version restore)
+  const loadDoc = useCallback(() => {
     if (!documentId) return;
     setIsLoadingDoc(true);
     adminGetDocumentById(documentId)
       .then((doc) => {
+        setFullDoc(doc);
         setTitle(doc.title);
         setDocId(doc.docId ?? "");
         setSelectedCategory(
@@ -90,14 +106,25 @@ export function DocumentEditor({
         setSelectedSection(
           typeof doc.sectionId === "object" ? doc.sectionId._id : doc.sectionId,
         );
+        setOwner(doc.owner?._id ?? "");
         setContentHtml(doc.contentHtml ?? "");
         if (doc.contentJson && Object.keys(doc.contentJson).length > 0) {
           setContentJson(doc.contentJson);
         }
+        setContentVersion((v) => v + 1); // re-sync RichTextEditor with loaded content
       })
       .catch(() => setSaveError("Failed to load document content"))
       .finally(() => setIsLoadingDoc(false));
   }, [documentId]);
+
+  useEffect(() => { loadDoc(); }, [loadDoc]);
+
+  // Load active users once for the owner dropdown
+  useEffect(() => {
+    listEmployees({ isActive: true })
+      .then(setUsers)
+      .catch(() => { /* non-fatal — owner dropdown just stays empty */ });
+  }, []);
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -130,7 +157,7 @@ export function DocumentEditor({
     setIsSaving(true);
     setSaveError(null);
     try {
-      const payload = {
+      const base = {
         title: title.trim(),
         docId: docId.trim(),
         categoryId: selectedCategory,
@@ -141,9 +168,9 @@ export function DocumentEditor({
       };
 
       if (documentId) {
-        await updateDocument(documentId, payload);
+        await updateDocument(documentId, { ...base, owner: owner || null });
       } else {
-        await createDocument(payload);
+        await createDocument({ ...base, owner: owner || undefined });
       }
       onClose();
     } catch (err) {
@@ -257,6 +284,17 @@ export function DocumentEditor({
   const currentSections =
     categories.find((c) => c.id === selectedCategory)?.sections ?? [];
 
+  // ── Edit-restriction gating (mirrors the backend's canEditDoc rule) ──────────
+  const canManageAll = hasPermission("content:manage-all");
+  const isOwner = !!fullDoc?.owner?._id && user?.id === fullDoc.owner._id;
+  // Creating is always allowed (route-guarded). For an existing doc: super-admins
+  // always; otherwise the doc must have an owner AND the caller is that owner or
+  // holds content:manage-all. Unowned existing docs → super-admins only.
+  const canEdit =
+    !documentId ||
+    isSuperAdmin ||
+    (!!fullDoc?.owner?._id && (isOwner || canManageAll));
+
   return (
     <div>
       {/* Header */}
@@ -279,7 +317,26 @@ export function DocumentEditor({
           <div className="h-80 rounded-xl bg-muted animate-pulse" />
         </div>
       ) : (
-        <div className="space-y-6">
+        <Tabs defaultValue="editor">
+          {documentId && (
+            <TabsList className="mb-4">
+              <TabsTrigger value="editor">Editor</TabsTrigger>
+              <TabsTrigger value="history" className="gap-1.5">
+                <History className="w-3.5 h-3.5" />
+                Version history
+              </TabsTrigger>
+            </TabsList>
+          )}
+          <TabsContent value="editor" className="space-y-6">
+          {!canEdit && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <Lock className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>
+                You are not the owner of this document. Only the owner or an administrator
+                can edit it.
+              </span>
+            </div>
+          )}
           {/* Info card */}
           <Card className="p-6">
             <h2 className="text-base font-semibold text-foreground mb-4">
@@ -389,10 +446,63 @@ export function DocumentEditor({
                 )}
               </div>
             </div>
+
+            {/* Owner + audit metadata */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Owner</label>
+                <Select
+                  value={owner || NO_OWNER}
+                  onValueChange={(v) => setOwner(v === NO_OWNER ? "" : v)}
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_OWNER}>
+                      <span className="text-muted-foreground">Unassigned</span>
+                    </SelectItem>
+                    {users.map((u) => (
+                      <SelectItem key={u._id} value={u._id}>
+                        {u.name}
+                        <span className="text-muted-foreground ml-1.5 text-xs">{u.email}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  The person responsible for this document.
+                </p>
+              </div>
+
+              {documentId && fullDoc && (fullDoc.createdBy || fullDoc.updatedBy) && (
+                <div className="flex flex-col gap-2 justify-center">
+                  {fullDoc.createdBy && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-20 shrink-0">Created by</span>
+                      <UserChip
+                        user={fullDoc.createdBy}
+                        subtitle={fullDoc.createdAt ? format(new Date(fullDoc.createdAt), "PP") : undefined}
+                      />
+                    </div>
+                  )}
+                  {fullDoc.updatedBy && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-20 shrink-0">Last edited</span>
+                      <UserChip
+                        user={fullDoc.updatedBy}
+                        subtitle={fullDoc.updatedAt ? formatDistanceToNow(new Date(fullDoc.updatedAt), { addSuffix: true }) : undefined}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </Card>
 
           {/* Editor card */}
-          <Card className="p-4 2xl:p-6">
+          <Card className={`p-4 2xl:p-6 ${!canEdit ? "pointer-events-none opacity-60" : ""}`}>
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-base font-semibold text-foreground">
                 Content
@@ -420,11 +530,11 @@ export function DocumentEditor({
 
           {/* Actions */}
           <div className="flex gap-3 flex-wrap">
-            <Button onClick={handleSave} disabled={isSaving} className="gap-2">
+            <Button onClick={handleSave} disabled={isSaving || !canEdit} className="gap-2">
               <Save className="w-4 h-4" />
               {isSaving ? "Saving…" : "Save Document"}
             </Button>
-            {documentId && (
+            {documentId && canEdit && (
               <Button
                 onClick={handleDelete}
                 variant="destructive"
@@ -438,7 +548,13 @@ export function DocumentEditor({
               Cancel
             </Button>
           </div>
-        </div>
+          </TabsContent>
+          {documentId && (
+            <TabsContent value="history">
+              <VersionHistory documentId={documentId} canRestore={canEdit} onRestored={loadDoc} />
+            </TabsContent>
+          )}
+        </Tabs>
       )}
 
       {/* ── Add New Category Dialog ──────────────────────────────────────────── */}

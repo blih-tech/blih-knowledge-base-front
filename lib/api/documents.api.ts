@@ -2,12 +2,20 @@ import { serverFetch, apiAxios } from "./client";
 
 // ─── Shared Types ─────────────────────────────────────────────────────────────
 
+export interface UserRef {
+  _id: string;
+  name: string;
+  email: string;
+}
+
 export interface DocSummary {
   _id: string;
   title: string;
   slug: string;
   docId: string;
   order: number;
+  owner?: UserRef | null;
+  updatedAt?: string;
 }
 
 export interface SectionNode {
@@ -39,6 +47,27 @@ export interface FullDocument {
   contentText: string;
   categoryId: { _id: string; name: string; slug: string };
   sectionId: { _id: string; name: string; slug: string };
+  owner?: UserRef | null;
+  createdBy?: UserRef | null;
+  updatedBy?: UserRef | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DocumentVersion {
+  _id: string;
+  version: number;
+  title: string;
+  docId: string;
+  changedBy: UserRef | null;
+  changedAt: string;
+  changeNote?: string;
+}
+
+export interface DocumentVersionDetail extends DocumentVersion {
+  contentHtml: string;
+  contentJson: object;
+  contentText?: string;
 }
 
 export interface SearchResult {
@@ -92,6 +121,14 @@ export const adminUpdateDocument = (id: string, data: object) =>
   apiAxios.put(`/docs/documents/${id}`, data).then(unwrap);
 export const adminDeleteDocument = (id: string) =>
   apiAxios.delete(`/docs/documents/${id}`);
+
+// Document version history
+export const adminGetDocumentVersions = (id: string): Promise<DocumentVersion[]> =>
+  apiAxios.get(`/docs/documents/${id}/versions`).then((res) => res.data.data as DocumentVersion[]);
+export const adminGetDocumentVersion = (id: string, versionId: string): Promise<DocumentVersionDetail> =>
+  apiAxios.get(`/docs/documents/${id}/versions/${versionId}`).then((res) => res.data.data as DocumentVersionDetail);
+export const adminRestoreDocumentVersion = (id: string, versionId: string, changeNote?: string) =>
+  apiAxios.post(`/docs/documents/${id}/versions/${versionId}/restore`, changeNote ? { changeNote } : {}).then(unwrap);
 
 // Search
 export const searchDocuments = (q: string): Promise<SearchResult[]> =>

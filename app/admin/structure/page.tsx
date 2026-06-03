@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { UserChip } from "@/components/UserChip";
 import {
   Plus,
   Trash2,
@@ -490,6 +491,11 @@ function StructureManagementContent() {
                                     <span className="text-sm text-foreground truncate flex-1">
                                       {doc.title}
                                     </span>
+                                    {doc.owner && (
+                                      <span onClick={(e) => e.stopPropagation()}>
+                                        <UserChip compact user={doc.owner} />
+                                      </span>
+                                    )}
                                     {doc.docId && (
                                       <span className="text-xs font-mono text-muted-foreground shrink-0">
                                         {doc.docId}

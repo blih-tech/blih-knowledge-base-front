@@ -15,6 +15,7 @@ import {
   adminCreateDocument,
   adminUpdateDocument,
   adminDeleteDocument,
+  adminRestoreDocumentVersion,
 } from "./api/documents.api";
 
 // ─── Context shape ─────────────────────────────────────────────────────────────
@@ -44,9 +45,11 @@ interface AdminContextType {
     contentHtml?: string;
     contentJson?: object;
     contentText?: string;
+    owner?: string;
   }) => Promise<DocSummary>;
   updateDocument: (id: string, data: object) => Promise<void>;
   deleteDocument: (id: string) => Promise<void>;
+  restoreDocumentVersion: (id: string, versionId: string) => Promise<void>;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -117,6 +120,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     contentHtml?: string;
     contentJson?: object;
     contentText?: string;
+    owner?: string;
   }): Promise<DocSummary> => {
     const created = await adminCreateDocument(data);
     await reload();
@@ -130,6 +134,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const deleteDocument = async (id: string) => {
     await adminDeleteDocument(id);
+    await reload();
+  };
+
+  const restoreDocumentVersion = async (id: string, versionId: string) => {
+    await adminRestoreDocumentVersion(id, versionId);
     await reload();
   };
 
@@ -149,6 +158,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         createDocument,
         updateDocument,
         deleteDocument,
+        restoreDocumentVersion,
       }}
     >
       {children}
