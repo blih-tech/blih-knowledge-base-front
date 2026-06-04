@@ -13,6 +13,7 @@ export const PERMISSIONS = [
   'meetings:manage',
   'surveys:manage',
   'ai:admin',
+  'policies:manage',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -30,5 +31,7 @@ export const PERMISSION_LABELS: Record<Permission, { label: string; description:
   'meetings:manage':    { label: 'Manage Meetings',      description: 'Create, edit, and delete meeting minutes' },
   'surveys:manage':     { label: 'Manage Surveys',       description: 'Create, edit, and delete surveys and view responses' },
   'ai:admin':           { label: 'AI Assistant',        description: 'Access the admin AI chat assistant' },
+  'policies:manage':    { label: 'Manage Policies',     description: 'Create, edit, and manage employment policies and compliance' },
 };
+
 

@@ -7,3 +7,4 @@ export { useMeetings, useMeetingMutations } from "./use-meetings";
 export { useSurveys, useSurveyDetail, useSurveyResponses, useSurveySummary, useSurveyMutations } from "./use-surveys";
 export { useProfile, useProfileMutations } from "./use-profile";
 export { useAiMutations } from "./use-ai";
+export { usePolicies, usePolicyDetail, usePolicyAcceptances, useComplianceReport, useActivePolicies, usePolicyVersions, usePolicyVersion, usePolicyMutations } from "./use-policies";

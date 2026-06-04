@@ -53,4 +53,13 @@ export const queryKeys = {
   profile: {
     me: ["profile", "me"] as const,
   },
+  policies: {
+    all: ["policies"] as const,
+    list: (filters: Record<string, unknown>) =>
+      ["policies", "list", filters] as const,
+    detail: (id: string) => ["policies", "detail", id] as const,
+    versions: (policyId: string) => ["policies", policyId, "versions"] as const,
+    compliance: ["policies", "compliance"] as const,
+    active: ["policies", "active"] as const,
+  },
 };

@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 
 import { AdminAIProvider, useAdminAI } from "@/lib/admin-ai-context";
 import { AdminChatInterface } from "@/components/AdminChatInterface";
+import { PolicyGuard } from "@/components/PolicyGuard";
 import type { Permission } from "@/lib/permissions";
 
 import {
@@ -43,6 +44,7 @@ import {
   CalendarCheck,
   ClipboardList,
   UserCircle,
+  ScrollText,
 } from "lucide-react";
 
 // ─── Nav config (permission-gated) ───────────────────────────────────────────
@@ -63,6 +65,7 @@ const navItems: {
   { href: "/admin/reports",      label: "Reports",            icon: BarChart3,       permission: "reports:view" },
   { href: "/admin/meetings",     label: "Meeting Minutes",    icon: CalendarCheck,   permission: "meetings:manage" },
   { href: "/admin/surveys",      label: "Surveys",            icon: ClipboardList,   permission: "surveys:manage" },
+  { href: "/admin/policies",     label: "Policies",           icon: ScrollText,      permission: "policies:manage" },
 ];
 
 // ─── Admin Sidebar ────────────────────────────────────────────────────────────
@@ -358,7 +361,7 @@ function AdminShell({ children }: { children: React.ReactNode }) {
         </header>
         <main className="flex-1 overflow-auto p-6">
           <div className="max-w-5xl mx-auto w-full">
-            {hasAccess ? children : <AccessDenied />}
+            {hasAccess ? <PolicyGuard>{children}</PolicyGuard> : <AccessDenied />}
           </div>
         </main>
       </SidebarInset>

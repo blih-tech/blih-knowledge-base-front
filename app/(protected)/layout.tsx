@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Header } from "@/components/Header";
+import { PolicyGuard } from "@/components/PolicyGuard";
 import { Loader2 } from "lucide-react";
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -34,7 +35,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       </div>
       {/* Spacer to offset the fixed header height */}
       <div className="h-16 print:hidden" />
-      {children}
+      <PolicyGuard>{children}</PolicyGuard>
     </>
   );
 }
+
