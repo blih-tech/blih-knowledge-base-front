@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import { Mark, mergeAttributes, type RawCommands } from "@tiptap/react";
@@ -10,6 +10,7 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
+import { Image as TiptapImage } from "@tiptap/extension-image";
 import {
   Bold,
   Italic,
@@ -35,6 +36,7 @@ import {
   ToggleLeft,
   RowsIcon,
   ColumnsIcon,
+  ImageIcon,
 } from "lucide-react";
 
 // ─── Custom inline mark: TextSize ─────────────────────────────────────────────
@@ -133,6 +135,13 @@ export function RichTextEditor({
       TableRow,
       TableCell,
       TableHeader,
+      TiptapImage.configure({
+        inline: false,
+        allowBase64: true,
+        HTMLAttributes: {
+          class: 'editor-image',
+        },
+      }),
       Placeholder.configure({ placeholder }),
     ],
     content: value,
@@ -158,6 +167,29 @@ export function RichTextEditor({
   }, [externalContentVersion]);
 
   if (!editor) return null;
+
+  // Hidden file input for image upload
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Convert to base64 for inline embedding
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      editor.chain().focus().setImage({ src: base64, alt: file.name }).run();
+    };
+    reader.readAsDataURL(file);
+    // Reset input so the same file can be re-selected
+    e.target.value = "";
+  };
+
+  const addImageFromUrl = () => {
+    const url = prompt("Enter image URL");
+    if (url) {
+      editor.chain().focus().setImage({ src: url }).run();
+    }
+  };
 
   const addLink = () => {
     const url = prompt("Enter URL");
@@ -292,6 +324,22 @@ export function RichTextEditor({
           pointer-events: none;
         }
         .ProseMirror.resize-cursor { cursor: col-resize; }
+
+        /* Image styles */
+        .ProseMirror img.editor-image,
+        .ProseMirror img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          margin: 0.75em 0;
+          display: block;
+          cursor: default;
+        }
+        .ProseMirror img.ProseMirror-selectednode {
+          outline: 2px solid var(--primary);
+          outline-offset: 2px;
+          border-radius: 8px;
+        }
       `}</style>
 
       {/* Toolbar */}
@@ -398,6 +446,23 @@ export function RichTextEditor({
         <Btn onClick={addLink} active={editor.isActive("link")} title="Link">
           <LinkIcon className="w-4 h-4" />
         </Btn>
+
+        {/* Image controls */}
+        <Btn onClick={addImageFromUrl} active={false} title="Image from URL">
+          <ImageIcon className="w-4 h-4" />
+        </Btn>
+        <label
+          className="inline-flex items-center justify-center rounded-md h-8 w-8 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+          title="Upload Image"
+        >
+          <input
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={handleImageUpload}
+          />
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </label>
 
         <Sep />
 

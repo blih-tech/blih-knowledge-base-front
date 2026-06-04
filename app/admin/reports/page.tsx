@@ -41,6 +41,7 @@ import {
 
 const PERIOD_TYPES: { value: PeriodType | ""; label: string }[] = [
   { value: "", label: "All Periods" },
+  { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
   { value: "monthly", label: "Monthly" },
   { value: "quarterly", label: "Quarterly" },
@@ -53,10 +54,99 @@ const STATUS_OPTIONS: { value: ReportStatus | ""; label: string }[] = [
 ];
 
 const PERIOD_BADGE_COLORS: Record<PeriodType, string> = {
+  daily: "bg-cyan-50 text-cyan-700 border-cyan-200",
   weekly: "bg-blue-50 text-blue-700 border-blue-200",
   monthly: "bg-violet-50 text-violet-700 border-violet-200",
   quarterly: "bg-amber-50 text-amber-700 border-amber-200",
 };
+
+function getDatePreset(key: string): { from: string; to: string } {
+  const now = new Date();
+  const to = now.toISOString().slice(0, 10);
+  const from = new Date(now);
+  const daysMap: Record<string, number> = {
+    today: 0,
+    last3: 3,
+    last5: 5,
+    last7: 7,
+    last14: 14,
+    last30: 30,
+    last60: 60,
+    last90: 90,
+    last180: 180,
+    last365: 365,
+  };
+  if (key in daysMap) {
+    from.setDate(from.getDate() - daysMap[key]);
+    return { from: from.toISOString().slice(0, 10), to };
+  }
+  // "thisWeek" / "thisMonth" / "thisQuarter"
+  if (key === "thisWeek") {
+    const day = now.getDay();
+    from.setDate(from.getDate() - (day === 0 ? 6 : day - 1)); // Monday
+    return { from: from.toISOString().slice(0, 10), to };
+  }
+  if (key === "thisMonth") {
+    from.setDate(1);
+    return { from: from.toISOString().slice(0, 10), to };
+  }
+  if (key === "thisQuarter") {
+    const qMonth = Math.floor(now.getMonth() / 3) * 3;
+    from.setMonth(qMonth, 1);
+    return { from: from.toISOString().slice(0, 10), to };
+  }
+  return { from: "", to: "" };
+}
+
+type DatePresetItem = { key: string; label: string };
+
+function getDatePresetsForPeriod(period: PeriodType | ""): DatePresetItem[] {
+  const base: DatePresetItem = { key: "", label: "All Time" };
+  switch (period) {
+    case "daily":
+      return [
+        base,
+        { key: "today", label: "Today" },
+        { key: "last3", label: "Last 3 Days" },
+        { key: "last5", label: "Last 5 Days" },
+        { key: "last7", label: "Last 7 Days" },
+      ];
+    case "weekly":
+      return [
+        base,
+        { key: "thisWeek", label: "This Week" },
+        { key: "last7", label: "Last 7 Days" },
+        { key: "last14", label: "Last 2 Weeks" },
+        { key: "last30", label: "Last 4 Weeks" },
+      ];
+    case "monthly":
+      return [
+        base,
+        { key: "thisMonth", label: "This Month" },
+        { key: "last30", label: "Last 30 Days" },
+        { key: "last60", label: "Last 2 Months" },
+        { key: "last90", label: "Last 3 Months" },
+        { key: "last180", label: "Last 6 Months" },
+      ];
+    case "quarterly":
+      return [
+        base,
+        { key: "thisQuarter", label: "This Quarter" },
+        { key: "last90", label: "Last 90 Days" },
+        { key: "last180", label: "Last 6 Months" },
+        { key: "last365", label: "Last Year" },
+      ];
+    default:
+      // No period selected — show a generic mix
+      return [
+        base,
+        { key: "today", label: "Today" },
+        { key: "last7", label: "Last 7 Days" },
+        { key: "last30", label: "Last 30 Days" },
+        { key: "last90", label: "Last 3 Months" },
+      ];
+  }
+}
 
 const STATUS_BADGE: Record<ReportStatus, { cls: string; label: string }> = {
   draft: { cls: "bg-gray-100 text-gray-600 border-gray-200", label: "Draft" },
@@ -81,7 +171,8 @@ function getDefaultDates(periodType: PeriodType): {
   const now = new Date();
   const end = now.toISOString().slice(0, 10);
   const start = new Date(now);
-  if (periodType === "weekly") start.setDate(start.getDate() - 7);
+  if (periodType === "daily") { /* same day */ }
+  else if (periodType === "weekly") start.setDate(start.getDate() - 7);
   else if (periodType === "monthly") start.setMonth(start.getMonth() - 1);
   else start.setMonth(start.getMonth() - 3);
   return { start: start.toISOString().slice(0, 10), end };
@@ -359,6 +450,7 @@ function ReportForm({
                 }
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
               >
+                <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
                 <option value="monthly">Monthly</option>
                 <option value="quarterly">Quarterly</option>
@@ -484,6 +576,17 @@ export default function AdminReportsPage() {
   const [filterStatus, setFilterStatus] = useState<ReportStatus | "">("");
   const [myReportsOnly, setMyReportsOnly] = useState(false);
   const [page, setPage] = useState(1);
+  const [datePreset, setDatePreset] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+
+  const applyDatePreset = (key: string) => {
+    setDatePreset(key);
+    const { from, to } = getDatePreset(key);
+    setDateFrom(from);
+    setDateTo(to);
+    setPage(1);
+  };
 
   // ── Build filters ───────────────────────────────────────────────────────
   const reportFilters: TaskReportFilters = { page, limit: 15 };
@@ -491,6 +594,8 @@ export default function AdminReportsPage() {
   if (filterDept) reportFilters.department = filterDept;
   if (filterStatus) reportFilters.status = filterStatus;
   if (myReportsOnly && user?.id) reportFilters.author = user.id;
+  if (dateFrom) reportFilters.dateFrom = dateFrom;
+  if (dateTo) reportFilters.dateTo = dateTo;
 
   // ── Queries ────────────────────────────────────────────────────────────
   const {
@@ -535,7 +640,7 @@ export default function AdminReportsPage() {
     user?.id === report.author?._id || user?.isSuperAdmin === true;
 
   const hasFilters =
-    filterPeriod || filterDept || filterStatus || myReportsOnly;
+    filterPeriod || filterDept || filterStatus || myReportsOnly || dateFrom || dateTo;
 
   // ── Detail View ──
   if (view === "detail" && selectedReport) {
@@ -670,8 +775,9 @@ export default function AdminReportsPage() {
       </div>
 
       {/* ── Filters ── */}
-      <Card className="border shadow-sm">
-        <div className="px-4 py-3 flex items-center gap-3 flex-wrap">
+      <Card className="border shadow-sm overflow-hidden">
+        {/* Row 1: Period type + dropdowns */}
+        <div className="px-4 py-2.5 flex items-center gap-3 flex-wrap">
           {/* Period tabs */}
           <div className="flex items-center gap-0.5 p-0.5 bg-secondary rounded-lg">
             {PERIOD_TYPES.map((p) => (
@@ -679,6 +785,9 @@ export default function AdminReportsPage() {
                 key={p.value}
                 onClick={() => {
                   setFilterPeriod(p.value as PeriodType | "");
+                  setDatePreset("");
+                  setDateFrom("");
+                  setDateTo("");
                   setPage(1);
                 }}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
@@ -692,26 +801,8 @@ export default function AdminReportsPage() {
             ))}
           </div>
 
-          {/* Clear filters */}
-          {hasFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs gap-1 text-muted-foreground hover:text-red-600"
-              onClick={() => {
-                setFilterPeriod("");
-                setFilterDept("");
-                setFilterStatus("");
-                setMyReportsOnly(false);
-                setPage(1);
-              }}
-            >
-              <X className="w-3 h-3" /> Clear filters
-            </Button>
-          )}
-
-          {/* Right-aligned: Department + Status */}
-          <div className="ml-auto flex items-center gap-3">
+          {/* Right side: dropdowns + clear */}
+          <div className="ml-auto flex items-center gap-2">
             <div className="relative">
               <Building2 className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <select
@@ -730,7 +821,6 @@ export default function AdminReportsPage() {
                 ))}
               </select>
             </div>
-
             <div className="relative">
               <Clock className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <select
@@ -748,6 +838,72 @@ export default function AdminReportsPage() {
                 ))}
               </select>
             </div>
+            {hasFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs gap-1 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                onClick={() => {
+                  setFilterPeriod("");
+                  setFilterDept("");
+                  setFilterStatus("");
+                  setMyReportsOnly(false);
+                  setDatePreset("");
+                  setDateFrom("");
+                  setDateTo("");
+                  setPage(1);
+                }}
+              >
+                <X className="w-3 h-3" /> Clear
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2: Contextual date presets + custom range */}
+        <div className="px-4 py-2 border-t border-border/40 bg-secondary/20 flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            <div className="flex items-center gap-1">
+              {getDatePresetsForPeriod(filterPeriod).map((d) => (
+                <button
+                  key={d.key}
+                  onClick={() => applyDatePreset(d.key)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                    datePreset === d.key
+                      ? "bg-white text-foreground shadow-sm border border-border/60"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/60"
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Custom from/to */}
+          <div className="flex items-center gap-1.5 text-xs">
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                setDatePreset("custom");
+                setPage(1);
+              }}
+              className="h-7 w-[145px] text-[11px] bg-white"
+            />
+            <span className="text-muted-foreground">—</span>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                setDatePreset("custom");
+                setPage(1);
+              }}
+              className="h-7 w-[145px] text-[11px] bg-white"
+            />
           </div>
         </div>
       </Card>

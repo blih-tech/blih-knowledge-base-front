@@ -2,7 +2,7 @@ import { apiAxios } from "./client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type PeriodType = "weekly" | "monthly" | "quarterly";
+export type PeriodType = "daily" | "weekly" | "monthly" | "quarterly";
 export type ReportStatus = "draft" | "submitted";
 
 export interface TaskReportAuthor {
@@ -17,6 +17,14 @@ export interface TaskReportDepartment {
   name: string;
 }
 
+export interface TaskReportAttachment {
+  publicId: string;
+  url: string;
+  originalFilename: string;
+  format: string;
+  bytes: number;
+}
+
 export interface TaskReport {
   _id: string;
   title: string;
@@ -27,6 +35,7 @@ export interface TaskReport {
   department: TaskReportDepartment;
   author: TaskReportAuthor;
   status: ReportStatus;
+  attachments: TaskReportAttachment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -50,6 +59,8 @@ export interface TaskReportFilters {
   status?: ReportStatus;
   sortBy?: "createdAt" | "periodStart" | "title";
   sortOrder?: "asc" | "desc";
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface CreateTaskReportData {
