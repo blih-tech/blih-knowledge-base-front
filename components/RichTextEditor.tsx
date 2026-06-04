@@ -6,6 +6,10 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import { Mark, mergeAttributes, type RawCommands } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
 import {
   Bold,
   Italic,
@@ -19,6 +23,18 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Table as TableIcon,
+  Trash2,
+  ArrowDownToLine,
+  ArrowUpToLine,
+  ArrowRightToLine,
+  ArrowLeftToLine,
+  RemoveFormatting,
+  Merge,
+  SplitSquareHorizontal,
+  ToggleLeft,
+  RowsIcon,
+  ColumnsIcon,
 } from "lucide-react";
 
 // ─── Custom inline mark: TextSize ─────────────────────────────────────────────
@@ -113,6 +129,10 @@ export function RichTextEditor({
         },
       }),
       TextSize,
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
       Placeholder.configure({ placeholder }),
     ],
     content: value,
@@ -228,6 +248,50 @@ export function RichTextEditor({
           float: left;
           height: 0;
         }
+
+        /* Table styles */
+        .ProseMirror table {
+          border-collapse: collapse;
+          width: 100%;
+          margin: 0.75em 0;
+          overflow: hidden;
+          table-layout: fixed;
+        }
+        .ProseMirror table td,
+        .ProseMirror table th {
+          border: 1px solid var(--border);
+          padding: 0.5em 0.75em;
+          vertical-align: top;
+          position: relative;
+          min-width: 80px;
+        }
+        .ProseMirror table th {
+          background: var(--muted);
+          font-weight: 600;
+          font-size: 0.875em;
+          text-align: left;
+        }
+        .ProseMirror table td p,
+        .ProseMirror table th p {
+          margin: 0;
+        }
+        .ProseMirror table .selectedCell {
+          background: color-mix(in srgb, var(--primary) 12%, white);
+        }
+        .ProseMirror .tableWrapper {
+          overflow-x: auto;
+          margin: 0.75em 0;
+        }
+        .ProseMirror .column-resize-handle {
+          position: absolute;
+          right: -2px;
+          top: 0;
+          bottom: -2px;
+          width: 4px;
+          background: var(--primary);
+          pointer-events: none;
+        }
+        .ProseMirror.resize-cursor { cursor: col-resize; }
       `}</style>
 
       {/* Toolbar */}
@@ -334,6 +398,120 @@ export function RichTextEditor({
         <Btn onClick={addLink} active={editor.isActive("link")} title="Link">
           <LinkIcon className="w-4 h-4" />
         </Btn>
+
+        <Sep />
+
+        {/* Table controls */}
+        <Btn
+          onClick={() =>
+            editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+          }
+          active={editor.isActive("table")}
+          title="Insert Table"
+        >
+          <TableIcon className="w-4 h-4" />
+        </Btn>
+
+        {editor.isActive("table") && (
+          <>
+            <Sep />
+
+            {/* Row operations */}
+            <Btn
+              onClick={() => editor.chain().focus().addRowBefore().run()}
+              active={false}
+              title="Add Row Above"
+            >
+              <ArrowUpToLine className="w-4 h-4" />
+            </Btn>
+            <Btn
+              onClick={() => editor.chain().focus().addRowAfter().run()}
+              active={false}
+              title="Add Row Below"
+            >
+              <ArrowDownToLine className="w-4 h-4" />
+            </Btn>
+            <Btn
+              onClick={() => editor.chain().focus().deleteRow().run()}
+              active={false}
+              title="Delete Row"
+            >
+              <RowsIcon className="w-4 h-4 text-red-500" />
+            </Btn>
+
+            <Sep />
+
+            {/* Column operations */}
+            <Btn
+              onClick={() => editor.chain().focus().addColumnBefore().run()}
+              active={false}
+              title="Add Column Left"
+            >
+              <ArrowLeftToLine className="w-4 h-4" />
+            </Btn>
+            <Btn
+              onClick={() => editor.chain().focus().addColumnAfter().run()}
+              active={false}
+              title="Add Column Right"
+            >
+              <ArrowRightToLine className="w-4 h-4" />
+            </Btn>
+            <Btn
+              onClick={() => editor.chain().focus().deleteColumn().run()}
+              active={false}
+              title="Delete Column"
+            >
+              <ColumnsIcon className="w-4 h-4 text-red-500" />
+            </Btn>
+
+            <Sep />
+
+            {/* Cell operations */}
+            <Btn
+              onClick={() => editor.chain().focus().mergeCells().run()}
+              active={false}
+              title="Merge Cells"
+            >
+              <Merge className="w-4 h-4" />
+            </Btn>
+            <Btn
+              onClick={() => editor.chain().focus().splitCell().run()}
+              active={false}
+              title="Split Cell"
+            >
+              <SplitSquareHorizontal className="w-4 h-4" />
+            </Btn>
+
+            <Sep />
+
+            {/* Header toggles */}
+            <Btn
+              onClick={() => editor.chain().focus().toggleHeaderRow().run()}
+              active={false}
+              title="Toggle Header Row"
+            >
+              <ToggleLeft className="w-4 h-4" />
+            </Btn>
+            <Btn
+              onClick={() => editor.chain().focus().fixTables().run()}
+              active={false}
+              title="Fix Table"
+            >
+              <RemoveFormatting className="w-4 h-4" />
+            </Btn>
+
+            <Sep />
+
+            {/* Delete table */}
+            <Btn
+              onClick={() => editor.chain().focus().deleteTable().run()}
+              active={false}
+              title="Delete Table"
+            >
+              <Trash2 className="w-4 h-4 text-red-500" />
+            </Btn>
+          </>
+        )}
       </div>
 
       {/* Editor */}
