@@ -35,6 +35,7 @@ export interface TaskReport {
   department: TaskReportDepartment;
   author: TaskReportAuthor;
   status: ReportStatus;
+  nextPlan: string;
   attachments: TaskReportAttachment[];
   createdAt: string;
   updatedAt: string;
@@ -71,6 +72,7 @@ export interface CreateTaskReportData {
   periodEnd: string;
   department: string;
   status?: ReportStatus;
+  nextPlan?: string;
 }
 
 export interface UpdateTaskReportData {
@@ -81,6 +83,7 @@ export interface UpdateTaskReportData {
   periodEnd?: string;
   department?: string;
   status?: ReportStatus;
+  nextPlan?: string;
 }
 
 // ─── API Functions ────────────────────────────────────────────────────────────

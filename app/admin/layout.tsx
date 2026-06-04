@@ -47,25 +47,52 @@ import {
   ScrollText,
 } from "lucide-react";
 
-// ─── Nav config (permission-gated) ───────────────────────────────────────────
+// ─── Nav config (permission-gated, grouped) ─────────────────────────────────
 
-const navItems: {
+interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
-  permission?: Permission; // undefined = always visible
-}[] = [
-  { href: "/admin/dashboard",    label: "Dashboard",          icon: LayoutDashboard },
-  { href: "/admin/structure",    label: "Manage Structure",   icon: Folder,          permission: "structure:manage" },
-  { href: "/admin/content",      label: "Manage Content",     icon: FileText,        permission: "content:manage" },
-  { href: "/admin/clients",      label: "Clients",            icon: Users,           permission: "clients:view" },
-  { href: "/admin/employees",    label: "Employees",          icon: UserCheck,       permission: "employees:manage" },
-  { href: "/admin/departments",  label: "Departments",        icon: Building2,       permission: "departments:manage" },
-  { href: "/admin/faq",          label: "FAQs",               icon: HelpCircle,      permission: "faq:manage" },
-  { href: "/admin/reports",      label: "Reports",            icon: BarChart3,       permission: "reports:view" },
-  { href: "/admin/meetings",     label: "Meeting Minutes",    icon: CalendarCheck,   permission: "meetings:manage" },
-  { href: "/admin/surveys",      label: "Surveys",            icon: ClipboardList,   permission: "surveys:manage" },
-  { href: "/admin/policies",     label: "Policies",           icon: ScrollText,      permission: "policies:manage" },
+  permission?: Permission;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    label: "Overview",
+    items: [
+      { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { href: "/admin/structure", label: "Manage Structure", icon: Folder, permission: "structure:manage" },
+      { href: "/admin/content", label: "Manage Content", icon: FileText, permission: "content:manage" },
+      { href: "/admin/faq", label: "FAQs", icon: HelpCircle, permission: "faq:manage" },
+      { href: "/admin/policies", label: "Policies", icon: ScrollText, permission: "policies:manage" },
+    ],
+  },
+  {
+    label: "Organization",
+    items: [
+      { href: "/admin/employees", label: "Employees", icon: UserCheck, permission: "employees:manage" },
+      { href: "/admin/departments", label: "Departments", icon: Building2, permission: "departments:manage" },
+      { href: "/admin/clients", label: "Clients", icon: Users, permission: "clients:view" },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      { href: "/admin/reports", label: "Reports", icon: BarChart3, permission: "reports:view" },
+      { href: "/admin/meetings", label: "Meeting Minutes", icon: CalendarCheck, permission: "meetings:manage" },
+      { href: "/admin/surveys", label: "Surveys", icon: ClipboardList, permission: "surveys:manage" },
+    ],
+  },
 ];
 
 // ─── Admin Sidebar ────────────────────────────────────────────────────────────
@@ -74,10 +101,6 @@ function AdminSidebar() {
   const pathname = usePathname();
   const { open } = useAdminAI();
   const { hasPermission } = useAuth();
-
-  const visibleItems = navItems.filter(
-    (item) => !item.permission || hasPermission(item.permission),
-  );
 
   return (
     <Sidebar collapsible="icon">
@@ -100,34 +123,47 @@ function AdminSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarMenu>
-            {visibleItems.map(({ href, label, icon: Icon }) => {
-              const isActive = pathname === href || pathname.startsWith(href + "/");
-              return (
-                <SidebarMenuItem key={href}>
-                  <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
-                    <Link href={href}>
-                      <Icon className="size-4" />
-                      <span>{label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              );
-            })}
+        {navGroups.map((group) => {
+          const visibleItems = group.items.filter(
+            (item) => !item.permission || hasPermission(item.permission),
+          );
+          if (visibleItems.length === 0) return null;
+          return (
+            <SidebarGroup key={group.label}>
+              <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+              <SidebarMenu>
+                {visibleItems.map(({ href, label, icon: Icon }) => {
+                  const isActive = pathname === href || pathname.startsWith(href + "/");
+                  return (
+                    <SidebarMenuItem key={href}>
+                      <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
+                        <Link href={href}>
+                          <Icon className="size-4" />
+                          <span>{label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroup>
+          );
+        })}
 
-            {/* AI Assistant — only for users with ai:admin permission */}
-            {hasPermission('ai:admin') && (
+        {/* AI Assistant */}
+        {hasPermission('ai:admin') && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Tools</SidebarGroupLabel>
+            <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton tooltip="AI Assistant" onClick={() => open()}>
                   <ShieldCheck className="size-4 text-violet-600" />
                   <span className="text-violet-700 font-medium">AI Assistant</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-            )}
-          </SidebarMenu>
-        </SidebarGroup>
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>
@@ -243,9 +279,11 @@ function AccessDenied() {
 // ─── Route → Permission resolver ──────────────────────────────────────────────
 
 function getRequiredPermission(pathname: string): Permission | null {
-  for (const item of navItems) {
-    if (pathname === item.href || pathname.startsWith(item.href + "/")) {
-      return item.permission ?? null;
+  for (const group of navGroups) {
+    for (const item of group.items) {
+      if (pathname === item.href || pathname.startsWith(item.href + "/")) {
+        return item.permission ?? null;
+      }
     }
   }
   return null; // no match = no restriction (dashboard, profile, etc.)

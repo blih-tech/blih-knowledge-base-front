@@ -23,6 +23,7 @@ import {
   Loader2,
   AlertCircle,
   Clock,
+  Download,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -108,6 +109,74 @@ function ReportCard({
   );
 }
 
+// ─── PDF Export ───────────────────────────────────────────────────────────────
+
+function exportReportToPdf(report: TaskReport) {
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${report.title}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a2e; padding: 48px; max-width: 800px; margin: 0 auto; line-height: 1.6; }
+    .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 24px; }
+    .title { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 20px; font-size: 12px; color: #64748b; margin-top: 12px; }
+    .meta-item { display: flex; align-items: center; gap: 4px; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: capitalize; }
+    .badge-period { background: #eff6ff; color: #1d4ed8; }
+    .badge-status { background: #ecfdf5; color: #047857; }
+    .section { margin-top: 28px; }
+    .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: #94a3b8; margin-bottom: 10px; }
+    .content { font-size: 14px; }
+    .content h1, .content h2, .content h3 { margin-top: 16px; margin-bottom: 8px; }
+    .content p { margin-bottom: 8px; }
+    .content ul, .content ol { margin-left: 20px; margin-bottom: 8px; }
+    .content table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+    .content th, .content td { border: 1px solid #e2e8f0; padding: 6px 10px; font-size: 13px; text-align: left; }
+    .content th { background: #f8fafc; font-weight: 600; }
+    .content img { max-width: 100%; height: auto; border-radius: 6px; margin: 8px 0; }
+    .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">${report.title}</div>
+    <div style="display:flex; gap:6px; margin-top:6px;">
+      <span class="badge badge-period">${report.periodType}</span>
+      <span class="badge badge-status">${report.status}</span>
+    </div>
+    <div class="meta">
+      <div class="meta-item">Author: <strong style="color:#1a1a2e; margin-left:4px;">${report.author?.name || "—"}</strong></div>
+      <div class="meta-item">Department: <strong style="color:#1a1a2e; margin-left:4px;">${report.department?.name || "—"}</strong></div>
+      <div class="meta-item">Period: ${formatDate(report.periodStart)} — ${formatDate(report.periodEnd)}</div>
+      <div class="meta-item">Created: ${formatDate(report.createdAt)}</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Report Content</div>
+    <div class="content">${report.content}</div>
+  </div>
+  ${report.nextPlan ? `
+  <div class="section">
+    <div class="section-label">Next Plan</div>
+    <div class="content">${report.nextPlan}</div>
+  </div>` : ""}
+  <div class="footer">
+    Generated on ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+  </div>
+  <script>window.onload = function() { window.print(); }</script>
+</body>
+</html>`;
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
 // ─── Report Detail View ───────────────────────────────────────────────────────
 
 function ReportDetailView({
@@ -119,14 +188,24 @@ function ReportDetailView({
 }) {
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="gap-1 -ml-2 text-muted-foreground"
-        onClick={onBack}
-      >
-        <ChevronLeft className="w-4 h-4" /> Back to reports
-      </Button>
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1 -ml-2 text-muted-foreground"
+          onClick={onBack}
+        >
+          <ChevronLeft className="w-4 h-4" /> Back to reports
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs"
+          onClick={() => exportReportToPdf(report)}
+        >
+          <Download className="w-3.5 h-3.5" /> Export PDF
+        </Button>
+      </div>
 
       <Card className="overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-primary via-primary/60 to-primary" />
@@ -186,6 +265,21 @@ function ReportDetailView({
             className="prose prose-sm max-w-none text-foreground"
             dangerouslySetInnerHTML={{ __html: report.content }}
           />
+
+          {/* Next Plan */}
+          {report.nextPlan && (
+            <>
+              <div className="border-t pt-4">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Next Plan
+                </h3>
+                <div
+                  className="prose prose-sm max-w-none text-foreground"
+                  dangerouslySetInnerHTML={{ __html: report.nextPlan }}
+                />
+              </div>
+            </>
+          )}
         </div>
       </Card>
     </div>
