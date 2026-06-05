@@ -45,6 +45,7 @@ import {
   ClipboardList,
   UserCircle,
   ScrollText,
+  Lightbulb,
 } from "lucide-react";
 
 // ─── Nav config (permission-gated, grouped) ─────────────────────────────────
@@ -91,6 +92,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/reports", label: "Reports", icon: BarChart3, permission: "reports:view" },
       { href: "/admin/meetings", label: "Meeting Minutes", icon: CalendarCheck, permission: "meetings:manage" },
       { href: "/admin/surveys", label: "Surveys", icon: ClipboardList, permission: "surveys:manage" },
+      { href: "/admin/initiatives", label: "Initiatives", icon: Lightbulb, permission: "initiatives:manage" },
     ],
   },
 ];

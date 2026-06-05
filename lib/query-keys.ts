@@ -62,4 +62,10 @@ export const queryKeys = {
     compliance: ["policies", "compliance"] as const,
     active: ["policies", "active"] as const,
   },
+  initiatives: {
+    all: ["initiatives"] as const,
+    list: (filters: Record<string, unknown>) =>
+      ["initiatives", "list", filters] as const,
+    detail: (id: string) => ["initiatives", "detail", id] as const,
+  },
 };
