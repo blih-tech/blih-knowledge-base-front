@@ -1,14 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import {
   type TaskReport,
   type TaskReportFilters,
   type PeriodType,
   type ReportStatus,
+  type ReportVisibility,
   type CreateTaskReportData,
 } from "@/lib/api/reports.api";
+import { listEmployees, type Employee } from "@/lib/api/employees.api";
 import type { Department } from "@/lib/api/departments.api";
 import { useReportMutations, useReports } from "@/hooks/queries";
 import { useDepartments } from "@/hooks/queries";
@@ -36,6 +39,12 @@ import {
   Filter,
   X,
   Download,
+  Globe,
+  Lock,
+  ShieldCheck,
+  Search,
+  Eye,
+  Users2,
 } from "lucide-react";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -53,6 +62,21 @@ const STATUS_OPTIONS: { value: ReportStatus | ""; label: string }[] = [
   { value: "draft", label: "Drafts" },
   { value: "submitted", label: "Submitted" },
 ];
+
+const VISIBILITY_OPTIONS: { value: ReportVisibility | ""; label: string }[] = [
+  { value: "", label: "All Visibility" },
+  { value: "everyone", label: "Everyone" },
+  { value: "department_only", label: "Department Only" },
+  { value: "admins_only", label: "Admins Only" },
+  { value: "private", label: "Private" },
+];
+
+const VISIBILITY_BADGE: Record<ReportVisibility, { cls: string; label: string; icon: React.ElementType }> = {
+  everyone: { cls: "bg-green-50 text-green-700 border-green-200", label: "Everyone", icon: Globe },
+  department_only: { cls: "bg-blue-50 text-blue-700 border-blue-200", label: "Dept Only", icon: Building2 },
+  admins_only: { cls: "bg-amber-50 text-amber-700 border-amber-200", label: "Admins Only", icon: ShieldCheck },
+  private: { cls: "bg-red-50 text-red-700 border-red-200", label: "Private", icon: Lock },
+};
 
 const PERIOD_BADGE_COLORS: Record<PeriodType, string> = {
   daily: "bg-cyan-50 text-cyan-700 border-cyan-200",
@@ -179,72 +203,26 @@ function getDefaultDates(periodType: PeriodType): {
   return { start: start.toISOString().slice(0, 10), end };
 }
 
-// ─── PDF Export ───────────────────────────────────────────────────────────────
+// ─── PDF Export (shared utility) ──────────────────────────────────────────────
+
+import { exportToPdf, formatExportDate } from "@/lib/export";
 
 function exportReportToPdf(report: TaskReport) {
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
-
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>${report.title}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1a1a2e; padding: 48px; max-width: 800px; margin: 0 auto; line-height: 1.6; }
-    .header { border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 24px; }
-    .title { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
-    .meta { display: flex; flex-wrap: wrap; gap: 20px; font-size: 12px; color: #64748b; margin-top: 12px; }
-    .meta-item { display: flex; align-items: center; gap: 4px; }
-    .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; text-transform: capitalize; }
-    .badge-period { background: #eff6ff; color: #1d4ed8; }
-    .badge-status { background: #ecfdf5; color: #047857; }
-    .section { margin-top: 28px; }
-    .section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; color: #94a3b8; margin-bottom: 10px; }
-    .content { font-size: 14px; }
-    .content h1, .content h2, .content h3 { margin-top: 16px; margin-bottom: 8px; }
-    .content p { margin-bottom: 8px; }
-    .content ul, .content ol { margin-left: 20px; margin-bottom: 8px; }
-    .content table { border-collapse: collapse; width: 100%; margin: 12px 0; }
-    .content th, .content td { border: 1px solid #e2e8f0; padding: 6px 10px; font-size: 13px; text-align: left; }
-    .content th { background: #f8fafc; font-weight: 600; }
-    .content img { max-width: 100%; height: auto; border-radius: 6px; margin: 8px 0; }
-    .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; text-align: center; }
-    @media print { body { padding: 0; } }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="title">${report.title}</div>
-    <div style="display:flex; gap:6px; margin-top:6px;">
-      <span class="badge badge-period">${report.periodType}</span>
-      <span class="badge badge-status">${report.status}</span>
-    </div>
-    <div class="meta">
-      <div class="meta-item">Author: <strong style="color:#1a1a2e; margin-left:4px;">${report.author?.name || "—"}</strong></div>
-      <div class="meta-item">Department: <strong style="color:#1a1a2e; margin-left:4px;">${report.department?.name || "—"}</strong></div>
-      <div class="meta-item">Period: ${formatDate(report.periodStart)} — ${formatDate(report.periodEnd)}</div>
-      <div class="meta-item">Created: ${formatDate(report.createdAt)}</div>
-    </div>
-  </div>
-  <div class="section">
-    <div class="section-label">Report Content</div>
-    <div class="content">${report.content}</div>
-  </div>
-  ${report.nextPlan ? `
-  <div class="section">
-    <div class="section-label">Next Plan</div>
-    <div class="content">${report.nextPlan}</div>
-  </div>` : ""}
-  <div class="footer">
-    Generated on ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-  </div>
-  <script>window.onload = function() { window.print(); }</script>
-</body>
-</html>`;
-  printWindow.document.write(html);
-  printWindow.document.close();
+  exportToPdf({
+    title: report.title,
+    content: report.content,
+    badges: [
+      { text: report.periodType, color: "#1d4ed8", bg: "#eff6ff" },
+      { text: report.status, color: "#047857", bg: "#ecfdf5" },
+    ],
+    meta: [
+      { label: "Author", value: report.author?.name || "—" },
+      { label: "Department", value: report.department?.name || "—" },
+      { label: "Period", value: `${formatExportDate(report.periodStart)} — ${formatExportDate(report.periodEnd)}` },
+      { label: "Created", value: formatExportDate(report.createdAt) },
+    ],
+    sections: report.nextPlan ? [{ label: "Next Plan", html: report.nextPlan }] : [],
+  });
 }
 
 // ─── Report Card ──────────────────────────────────────────────────────────────
@@ -280,6 +258,15 @@ function ReportCard({
             >
               {STATUS_BADGE[report.status].label}
             </Badge>
+            {report.visibility && report.visibility !== "everyone" && (() => {
+              const vb = VISIBILITY_BADGE[report.visibility];
+              const VIcon = vb.icon;
+              return (
+                <Badge variant="outline" className={`text-[10px] py-0 ${vb.cls} flex items-center gap-0.5`}>
+                  <VIcon className="w-2.5 h-2.5" /> {vb.label}
+                </Badge>
+              );
+            })()}
             <span className="text-[11px] text-muted-foreground flex items-center gap-1">
               <Building2 className="w-3 h-3" /> {report.department?.name}
             </span>
@@ -359,6 +346,15 @@ function ReportDetail({
                 >
                   {STATUS_BADGE[report.status].label}
                 </Badge>
+                {(() => {
+                  const vb = VISIBILITY_BADGE[report.visibility || "everyone"];
+                  const VIcon = vb.icon;
+                  return (
+                    <Badge variant="outline" className={`${vb.cls} flex items-center gap-1`}>
+                      <VIcon className="w-3 h-3" /> {vb.label}
+                    </Badge>
+                  );
+                })()}
               </div>
             </div>
             {canModify && (
@@ -429,6 +425,25 @@ function ReportDetail({
               </div>
             </>
           )}
+
+          {/* Allowed viewers for secret reports */}
+          {report.visibility === "private" && report.allowedViewers?.length > 0 && canModify && (
+            <>
+              <Separator />
+              <div>
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <Eye className="w-3 h-3" /> Allowed Viewers
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {report.allowedViewers.map((v) => (
+                    <Badge key={v._id} variant="outline" className="text-xs py-0.5 bg-secondary/50">
+                      {v.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </Card>
     </div>
@@ -460,6 +475,8 @@ function ReportForm({
         periodStart: report.periodStart.slice(0, 10),
         periodEnd: report.periodEnd.slice(0, 10),
         department: report.department._id,
+        visibility: (report.visibility || "everyone") as ReportVisibility,
+        allowedViewers: (report.allowedViewers || []).map((v) => v._id),
       }
     : {
         title: "",
@@ -469,11 +486,21 @@ function ReportForm({
         periodStart: getDefaultDates("weekly").start,
         periodEnd: getDefaultDates("weekly").end,
         department: userDeptId || departments[0]?._id || "",
+        visibility: "everyone" as ReportVisibility,
+        allowedViewers: [] as string[],
       };
 
   const [form, setForm] = useState(defaults);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewerSearch, setViewerSearch] = useState("");
+
+  // Fetch employees for the viewer picker
+  const { data: allEmployees = [] } = useQuery<Employee[]>({
+    queryKey: ["employees", "list-for-viewers"],
+    queryFn: () => listEmployees({ isActive: true }),
+    enabled: form.visibility === "private",
+  });
 
   const handlePeriodTypeChange = (pt: PeriodType) => {
     const dates = getDefaultDates(pt);
@@ -627,6 +654,129 @@ function ReportForm({
             </div>
           </div>
 
+          {/* Visibility */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Visibility
+            </label>
+            <div className="flex items-center gap-2">
+              {(["everyone", "department_only", "admins_only", "private"] as ReportVisibility[]).map((v) => {
+                const vb = VISIBILITY_BADGE[v];
+                const VIcon = vb.icon;
+                const isActive = form.visibility === v;
+                return (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        visibility: v,
+                        allowedViewers: v !== "private" ? [] : f.allowedViewers,
+                      }))
+                    }
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                      isActive
+                        ? `${vb.cls} border-current shadow-sm ring-1 ring-current/20`
+                        : "border-input text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                    }`}
+                  >
+                    <VIcon className="w-3.5 h-3.5" />
+                    {vb.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {form.visibility === "everyone" && "Visible to all authenticated users."}
+              {form.visibility === "department_only" && "Only visible to members of the report's department."}
+              {form.visibility === "admins_only" && "Only visible to admins and superadmins."}
+              {form.visibility === "private" && "Only visible to superadmins, the author, and selected viewers below."}
+            </p>
+          </div>
+
+          {/* Allowed Viewers (private only) */}
+          {form.visibility === "private" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                <Users2 className="w-3.5 h-3.5" /> Allowed Viewers
+              </label>
+
+              {/* Selected viewers */}
+              {form.allowedViewers.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {form.allowedViewers.map((id) => {
+                    const emp = allEmployees.find((e) => e._id === id);
+                    return (
+                      <Badge
+                        key={id}
+                        variant="outline"
+                        className="text-xs py-0.5 pr-1 bg-secondary/50 flex items-center gap-1 cursor-pointer hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors"
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            allowedViewers: f.allowedViewers.filter((v) => v !== id),
+                          }))
+                        }
+                      >
+                        {emp?.name || id}
+                        <X className="w-3 h-3" />
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Search & pick employees */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <Input
+                  value={viewerSearch}
+                  onChange={(e) => setViewerSearch(e.target.value)}
+                  placeholder="Search employees to add..."
+                  className="pl-8 h-8 text-xs"
+                />
+              </div>
+              {viewerSearch.trim() && (
+                <div className="border rounded-lg max-h-40 overflow-y-auto">
+                  {allEmployees
+                    .filter(
+                      (e) =>
+                        !form.allowedViewers.includes(e._id) &&
+                        (e.name.toLowerCase().includes(viewerSearch.toLowerCase()) ||
+                          e.email.toLowerCase().includes(viewerSearch.toLowerCase()))
+                    )
+                    .slice(0, 10)
+                    .map((emp) => (
+                      <button
+                        key={emp._id}
+                        type="button"
+                        onClick={() => {
+                          setForm((f) => ({
+                            ...f,
+                            allowedViewers: [...f.allowedViewers, emp._id],
+                          }));
+                          setViewerSearch("");
+                        }}
+                        className="w-full text-left px-3 py-2 text-xs hover:bg-secondary/60 transition-colors flex items-center justify-between"
+                      >
+                        <span className="font-medium">{emp.name}</span>
+                        <span className="text-muted-foreground">{emp.email}</span>
+                      </button>
+                    ))}
+                  {allEmployees.filter(
+                    (e) =>
+                      !form.allowedViewers.includes(e._id) &&
+                      (e.name.toLowerCase().includes(viewerSearch.toLowerCase()) ||
+                        e.email.toLowerCase().includes(viewerSearch.toLowerCase()))
+                  ).length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">No matching employees</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {error && (
             <div className="flex items-center gap-1.5 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" /> {error}
@@ -684,6 +834,7 @@ export default function AdminReportsPage() {
   const [filterPeriod, setFilterPeriod] = useState<PeriodType | "">("");
   const [filterDept, setFilterDept] = useState("");
   const [filterStatus, setFilterStatus] = useState<ReportStatus | "">("");
+  const [filterVisibility, setFilterVisibility] = useState<ReportVisibility | "">("");
   const [myReportsOnly, setMyReportsOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [datePreset, setDatePreset] = useState("");
@@ -703,6 +854,7 @@ export default function AdminReportsPage() {
   if (filterPeriod) reportFilters.periodType = filterPeriod;
   if (filterDept) reportFilters.department = filterDept;
   if (filterStatus) reportFilters.status = filterStatus;
+  if (filterVisibility) reportFilters.visibility = filterVisibility;
   if (myReportsOnly && user?.id) reportFilters.author = user.id;
   if (dateFrom) reportFilters.dateFrom = dateFrom;
   if (dateTo) reportFilters.dateTo = dateTo;
@@ -750,7 +902,7 @@ export default function AdminReportsPage() {
     user?.id === report.author?._id || user?.isSuperAdmin === true;
 
   const hasFilters =
-    filterPeriod || filterDept || filterStatus || myReportsOnly || dateFrom || dateTo;
+    filterPeriod || filterDept || filterStatus || filterVisibility || myReportsOnly || dateFrom || dateTo;
 
   // ── Detail View ──
   if (view === "detail" && selectedReport) {
@@ -948,6 +1100,23 @@ export default function AdminReportsPage() {
                 ))}
               </select>
             </div>
+            <div className="relative">
+              <Eye className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <select
+                value={filterVisibility}
+                onChange={(e) => {
+                  setFilterVisibility(e.target.value as ReportVisibility | "");
+                  setPage(1);
+                }}
+                className="h-8 rounded-lg border border-input bg-background pl-8 pr-6 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/30 cursor-pointer appearance-none"
+              >
+                {VISIBILITY_OPTIONS.map((v) => (
+                  <option key={v.value} value={v.value}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             {hasFilters && (
               <Button
                 variant="ghost"
@@ -957,6 +1126,7 @@ export default function AdminReportsPage() {
                   setFilterPeriod("");
                   setFilterDept("");
                   setFilterStatus("");
+                  setFilterVisibility("");
                   setMyReportsOnly(false);
                   setDatePreset("");
                   setDateFrom("");

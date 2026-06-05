@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useMeetings, useMeetingMutations, useDepartments, useEmployees } from "@/hooks/queries";
-import type { MeetingMinute, MeetingMinuteFilters, MeetingStatus, ExternalAttendee } from "@/lib/api/meetings.api";
+import type { MeetingMinute, MeetingMinuteFilters, MeetingStatus, MeetingVisibility, ExternalAttendee } from "@/lib/api/meetings.api";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   CalendarCheck, Plus, Loader2, AlertCircle, Calendar, Building2,
   ChevronLeft, Save, Send, Trash2, Edit3, Clock, User, FileText,
-  Filter, X, MapPin, Users, UserPlus, ListChecks,
+  Filter, X, MapPin, Users, UserPlus, ListChecks, Globe, ShieldCheck, Lock, Search,
 } from "lucide-react";
 
 type View = "list" | "create" | "edit" | "detail";
@@ -22,6 +22,21 @@ const STATUS_OPTIONS: { value: MeetingStatus | ""; label: string }[] = [
   { value: "draft", label: "Draft" },
   { value: "published", label: "Published" },
 ];
+
+const VISIBILITY_OPTIONS: { value: MeetingVisibility | ""; label: string }[] = [
+  { value: "", label: "All Visibility" },
+  { value: "everyone", label: "Everyone" },
+  { value: "department_only", label: "Department Only" },
+  { value: "admins_only", label: "Admins Only" },
+  { value: "private", label: "Private" },
+];
+
+const VISIBILITY_BADGE: Record<MeetingVisibility, { cls: string; label: string; icon: React.ElementType }> = {
+  everyone: { cls: "bg-green-50 text-green-700 border-green-200", label: "Everyone", icon: Globe },
+  department_only: { cls: "bg-blue-50 text-blue-700 border-blue-200", label: "Dept Only", icon: Building2 },
+  admins_only: { cls: "bg-amber-50 text-amber-700 border-amber-200", label: "Admins Only", icon: ShieldCheck },
+  private: { cls: "bg-red-50 text-red-700 border-red-200", label: "Private", icon: Lock },
+};
 
 export default function AdminMeetingsPage() {
   const { user } = useAuth();
@@ -111,6 +126,13 @@ export default function AdminMeetingsPage() {
           >
             {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
+          <select
+            className="border rounded-lg px-3 py-2 text-sm bg-background"
+            value={filters.visibility || ""}
+            onChange={(e) => setFilters((f) => ({ ...f, visibility: (e.target.value || undefined) as MeetingVisibility | undefined, page: 1 }))}
+          >
+            {VISIBILITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
         </div>
       </Card>
 
@@ -139,6 +161,15 @@ export default function AdminMeetingsPage() {
                     <Badge variant={m.status === "published" ? "default" : "secondary"} className="text-[10px]">
                       {m.status}
                     </Badge>
+                    {m.visibility && m.visibility !== "everyone" && (() => {
+                      const vb = VISIBILITY_BADGE[m.visibility];
+                      const VIcon = vb.icon;
+                      return (
+                        <Badge variant="outline" className={`${vb.cls} text-[10px] flex items-center gap-0.5`}>
+                          <VIcon className="w-2.5 h-2.5" />{vb.label}
+                        </Badge>
+                      );
+                    })()}
                   </div>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(m.date).toLocaleDateString()}</span>
@@ -200,7 +231,18 @@ function MeetingDetail({ minute: m, onBack, onEdit, onDelete, isOwner }: {
       <Card className="p-6 space-y-5">
         <div className="flex items-start justify-between">
           <h2 className="text-lg font-bold">{m.title}</h2>
-          <Badge variant={m.status === "published" ? "default" : "secondary"}>{m.status}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={m.status === "published" ? "default" : "secondary"}>{m.status}</Badge>
+            {(() => {
+              const vb = VISIBILITY_BADGE[m.visibility || "everyone"];
+              const VIcon = vb.icon;
+              return (
+                <Badge variant="outline" className={`${vb.cls} flex items-center gap-1`}>
+                  <VIcon className="w-3 h-3" />{vb.label}
+                </Badge>
+              );
+            })()}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -304,10 +346,14 @@ function MeetingForm({ initial, departments, onSave, onCancel, isSaving }: {
       task: ai.task, assignee: ai.assignee?._id || "", dueDate: ai.dueDate?.slice(0, 10) || "", status: ai.status,
     })) || []
   );
+  const [visibility, setVisibility] = useState<MeetingVisibility>((initial?.visibility || "everyone") as MeetingVisibility);
+  const [allowedViewers, setAllowedViewers] = useState<string[]>(initial?.allowedViewers?.map((v) => v._id) || []);
+  const [viewerSearch, setViewerSearch] = useState("");
 
   const buildPayload = () => ({
     title, date, location, department, attendees, externalAttendees: extAttendees,
     agenda: agenda.filter(Boolean), content, actionItems: actionItems.filter((ai) => ai.task),
+    visibility, allowedViewers: visibility === "private" ? allowedViewers : [],
   });
 
   const addAgendaItem = () => setAgenda((a) => [...a, ""]);
@@ -429,6 +475,100 @@ function MeetingForm({ initial, departments, onSave, onCancel, isSaving }: {
             </div>
           ))}
         </div>
+
+        {/* Visibility */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4" /> Visibility
+          </label>
+          <div className="flex items-center gap-2">
+            {(["everyone", "department_only", "admins_only", "private"] as MeetingVisibility[]).map((v) => {
+              const vb = VISIBILITY_BADGE[v];
+              const VIcon = vb.icon;
+              const isActive = visibility === v;
+              return (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => {
+                    setVisibility(v);
+                    if (v !== "private") setAllowedViewers([]);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                    isActive
+                      ? `${vb.cls} border-current shadow-sm ring-1 ring-current/20`
+                      : "border-input text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                  }`}
+                >
+                  <VIcon className="w-3.5 h-3.5" />
+                  {vb.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {visibility === "everyone" && "Visible to all authenticated users."}
+            {visibility === "department_only" && "Only visible to members of the meeting's department."}
+            {visibility === "admins_only" && "Only visible to admins and superadmins."}
+            {visibility === "private" && "Only visible to superadmins, the author, and selected viewers below."}
+          </p>
+        </div>
+
+        {/* Allowed Viewers (private only) */}
+        {visibility === "private" && (
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              <Users className="w-3.5 h-3.5" /> Allowed Viewers
+            </label>
+            {allowedViewers.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {allowedViewers.map((id) => {
+                  const emp = employees.find((e) => e._id === id);
+                  return (
+                    <Badge
+                      key={id}
+                      variant="outline"
+                      className="text-xs py-0.5 pr-1 bg-secondary/50 flex items-center gap-1 cursor-pointer hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors"
+                      onClick={() => setAllowedViewers((v) => v.filter((x) => x !== id))}
+                    >
+                      {emp?.name || id}
+                      <X className="w-3 h-3" />
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Input
+                value={viewerSearch}
+                onChange={(e) => setViewerSearch(e.target.value)}
+                placeholder="Search employees to add..."
+                className="pl-8 h-8 text-xs"
+              />
+            </div>
+            {viewerSearch && (
+              <div className="border rounded-lg max-h-32 overflow-y-auto">
+                {employees
+                  .filter((e) => !allowedViewers.includes(e._id) && e.name.toLowerCase().includes(viewerSearch.toLowerCase()))
+                  .slice(0, 8)
+                  .map((e) => (
+                    <button
+                      key={e._id}
+                      type="button"
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-secondary/60 transition-colors"
+                      onClick={() => {
+                        setAllowedViewers((v) => [...v, e._id]);
+                        setViewerSearch("");
+                      }}
+                    >
+                      {e.name} <span className="text-muted-foreground">({e.email})</span>
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex gap-3 pt-4 border-t">

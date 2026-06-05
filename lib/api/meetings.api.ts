@@ -4,6 +4,7 @@ import { apiAxios } from "./client";
 
 export type MeetingStatus = "draft" | "published";
 export type ActionItemStatus = "pending" | "in-progress" | "done";
+export type MeetingVisibility = "everyone" | "department_only" | "admins_only" | "private";
 
 export interface MeetingAuthor {
   _id: string;
@@ -51,6 +52,8 @@ export interface MeetingMinute {
   content: string;
   actionItems: ActionItem[];
   status: MeetingStatus;
+  visibility: MeetingVisibility;
+  allowedViewers: { _id: string; name: string; email: string }[];
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -71,6 +74,7 @@ export interface MeetingMinuteFilters {
   limit?: number;
   department?: string;
   status?: MeetingStatus;
+  visibility?: MeetingVisibility;
   sortBy?: string;
   sortOrder?: string;
 }

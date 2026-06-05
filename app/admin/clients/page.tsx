@@ -33,12 +33,23 @@ const TIER_CONFIG: Record<string, { label: string; color: string }> = {
   startup:     { label: "Startup",     color: "bg-orange-100 text-orange-700 border-orange-200" },
 };
 
+const STATUS_GRADIENT: Record<string, string> = {
+  prospect:  "bg-gradient-to-r from-sky-400 to-blue-500",
+  active:    "bg-gradient-to-r from-emerald-400 to-teal-500",
+  "at-risk": "bg-gradient-to-r from-amber-400 to-orange-500",
+  paused:    "bg-gradient-to-r from-gray-300 to-gray-400",
+  churned:   "bg-gradient-to-r from-red-400 to-rose-500",
+};
+
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
-  "bg-violet-100 text-violet-700", "bg-blue-100 text-blue-700",
-  "bg-emerald-100 text-emerald-700", "bg-amber-100 text-amber-700",
-  "bg-rose-100 text-rose-700", "bg-sky-100 text-sky-700",
+  "bg-gradient-to-br from-violet-100 to-violet-200 text-violet-700",
+  "bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700",
+  "bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-700",
+  "bg-gradient-to-br from-amber-100 to-amber-200 text-amber-700",
+  "bg-gradient-to-br from-rose-100 to-rose-200 text-rose-700",
+  "bg-gradient-to-br from-sky-100 to-sky-200 text-sky-700",
 ];
 
 function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
@@ -210,8 +221,30 @@ export default function AdminClientsPage() {
 
       {/* List */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[1, 2, 3, 4].map((i) => <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="rounded-xl border border-border overflow-hidden">
+              <div className="h-1 w-full bg-muted animate-pulse" />
+              <div className="p-5 space-y-3.5">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-14 h-14 rounded-full bg-muted animate-pulse shrink-0" />
+                  <div className="flex-1 space-y-2 pt-1">
+                    <div className="h-4 w-3/4 rounded bg-muted animate-pulse" />
+                    <div className="h-3 w-1/2 rounded bg-muted/60 animate-pulse" />
+                  </div>
+                </div>
+                <div className="flex gap-1.5">
+                  <div className="h-5 w-16 rounded-full bg-muted animate-pulse" />
+                  <div className="h-5 w-20 rounded-full bg-muted/60 animate-pulse" />
+                </div>
+                <div className="h-px bg-border/60" />
+                <div className="flex gap-3">
+                  <div className="h-3 w-20 rounded bg-muted/60 animate-pulse" />
+                  <div className="h-3 w-28 rounded bg-muted/60 animate-pulse" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : !data?.clients.length ? (
         <Card className="p-12 text-center border-dashed">
@@ -219,59 +252,95 @@ export default function AdminClientsPage() {
           <p className="text-sm text-muted-foreground">{search ? "No clients match your search." : "No clients yet."}</p>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {data.clients.map((client) => {
             const statusCfg = STATUS_CONFIG[client.status] ?? STATUS_CONFIG.active;
             const tierCfg = client.tier ? TIER_CONFIG[client.tier] : null;
+            const statusGradient = STATUS_GRADIENT[client.status] ?? STATUS_GRADIENT.active;
             return (
-              <Card
+              <div
                 key={client._id}
-                className="p-4 flex items-start gap-3 hover:shadow-md transition-shadow cursor-pointer group"
+                className="group relative rounded-xl border border-border bg-card overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-black/5 hover:-translate-y-0.5"
                 onClick={() => router.push(`/admin/clients/${client._id}`)}
               >
-                <Avatar name={client.name} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm text-foreground truncate">{client.name}</p>
+                {/* Gradient accent bar */}
+                <div className={`h-1 w-full ${statusGradient}`} />
+
+                <div className="p-5">
+                  {/* Header: avatar + name + actions */}
+                  <div className="flex items-start gap-3.5">
+                    <Avatar name={client.name} size="lg" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground truncate leading-tight">{client.name}</p>
                       {client.industry && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                          <Building2 className="w-3 h-3" /> {client.industry}
+                        <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
+                          <Building2 className="w-3.5 h-3.5 shrink-0" /> {client.industry}
                         </p>
                       )}
-                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                        <span className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded-full border ${statusCfg.color}`}>
-                          {statusCfg.label}
-                        </span>
-                        {tierCfg && (
-                          <span className={`inline-flex items-center text-xs font-medium px-1.5 py-0.5 rounded-full border ${tierCfg.color}`}>
-                            {tierCfg.label}
-                          </span>
-                        )}
-                        {(client.contactCount ?? 0) > 0 && (
-                          <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground">
-                            <UserCheck className="w-3 h-3" /> {client.contactCount} contact{client.contactCount !== 1 ? "s" : ""}
-                          </span>
-                        )}
-                      </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0 mt-0.5" />
+                    {/* Hover actions */}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(client._id, client.name); }}
+                        disabled={deletingId === client._id}
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
+                        title="Delete client"
+                      >
+                        {deletingId === client._id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      </button>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+                    </div>
                   </div>
+
+                  {/* Badges row */}
+                  <div className="flex items-center gap-1.5 mt-3.5 flex-wrap">
+                    <span className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full border ${statusCfg.color}`}>
+                      {statusCfg.label}
+                    </span>
+                    {tierCfg && (
+                      <span className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full border ${tierCfg.color}`}>
+                        {tierCfg.label}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Metadata strip */}
+                  <div className="flex items-center gap-3 mt-3.5 pt-3 border-t border-border/60">
+                    {(client.contactCount ?? 0) > 0 && (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <UserCheck className="w-3.5 h-3.5" />
+                        <span className="font-medium text-foreground">{client.contactCount}</span> contact{client.contactCount !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {client.email && (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground truncate">
+                        <Mail className="w-3.5 h-3.5 shrink-0" /> {client.email}
+                      </span>
+                    )}
+                    {client.website && !client.email && (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground truncate">
+                        <Globe className="w-3.5 h-3.5 shrink-0" /> {client.website.replace(/^https?:\/\//, "")}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Tags */}
                   {client.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {client.tags.slice(0, 3).map((tag) => <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>)}
-                      {client.tags.length > 3 && <Badge variant="outline" className="text-xs">+{client.tags.length - 3}</Badge>}
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {client.tags.slice(0, 3).map((tag) => (
+                        <span key={tag} className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground">
+                          {tag}
+                        </span>
+                      ))}
+                      {client.tags.length > 3 && (
+                        <span className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-md border border-border text-muted-foreground">
+                          +{client.tags.length - 3}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(client._id, client.name); }}
-                  disabled={deletingId === client._id}
-                  className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                >
-                  {deletingId === client._id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                </button>
-              </Card>
+              </div>
             );
           })}
         </div>

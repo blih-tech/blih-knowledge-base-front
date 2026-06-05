@@ -10,7 +10,7 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
-import { Image as TiptapImage } from "@tiptap/extension-image";
+import { ResizableImage } from "./editor/ResizableImageExtension";
 import {
   Bold,
   Italic,
@@ -37,6 +37,11 @@ import {
   RowsIcon,
   ColumnsIcon,
   ImageIcon,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 
 // ─── Custom inline mark: TextSize ─────────────────────────────────────────────
@@ -135,13 +140,7 @@ export function RichTextEditor({
       TableRow,
       TableCell,
       TableHeader,
-      TiptapImage.configure({
-        inline: false,
-        allowBase64: true,
-        HTMLAttributes: {
-          class: 'editor-image',
-        },
-      }),
+      ResizableImage,
       Placeholder.configure({ placeholder }),
     ],
     content: value,
@@ -177,7 +176,7 @@ export function RichTextEditor({
     const reader = new FileReader();
     reader.onload = () => {
       const base64 = reader.result as string;
-      editor.chain().focus().setImage({ src: base64, alt: file.name }).run();
+      editor.chain().focus().insertContent({ type: "image", attrs: { src: base64, alt: file.name } }).run();
     };
     reader.readAsDataURL(file);
     // Reset input so the same file can be re-selected
@@ -187,7 +186,7 @@ export function RichTextEditor({
   const addImageFromUrl = () => {
     const url = prompt("Enter image URL");
     if (url) {
-      editor.chain().focus().setImage({ src: url }).run();
+      editor.chain().focus().insertContent({ type: "image", attrs: { src: url } }).run();
     }
   };
 
@@ -325,20 +324,15 @@ export function RichTextEditor({
         }
         .ProseMirror.resize-cursor { cursor: col-resize; }
 
-        /* Image styles */
-        .ProseMirror img.editor-image,
+        /* Image styles — handled by ResizableImage NodeView */
+        .ProseMirror [data-node-view-wrapper] {
+          margin: 0;
+        }
         .ProseMirror img {
           max-width: 100%;
-          height: auto;
           border-radius: 8px;
-          margin: 0.75em 0;
           display: block;
           cursor: default;
-        }
-        .ProseMirror img.ProseMirror-selectednode {
-          outline: 2px solid var(--primary);
-          outline-offset: 2px;
-          border-radius: 8px;
         }
       `}</style>
 
@@ -463,6 +457,57 @@ export function RichTextEditor({
           />
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         </label>
+
+        {/* Image alignment/size — visible when image selected */}
+        {editor.isActive("image") && (
+          <>
+            <Sep />
+            <Btn
+              onClick={() => editor.chain().focus().updateAttributes("image", { alignment: "left" }).run()}
+              active={editor.getAttributes("image").alignment === "left"}
+              title="Align Left"
+            >
+              <AlignLeft className="w-4 h-4" />
+            </Btn>
+            <Btn
+              onClick={() => editor.chain().focus().updateAttributes("image", { alignment: "center" }).run()}
+              active={editor.getAttributes("image").alignment === "center"}
+              title="Align Center"
+            >
+              <AlignCenter className="w-4 h-4" />
+            </Btn>
+            <Btn
+              onClick={() => editor.chain().focus().updateAttributes("image", { alignment: "right" }).run()}
+              active={editor.getAttributes("image").alignment === "right"}
+              title="Align Right"
+            >
+              <AlignRight className="w-4 h-4" />
+            </Btn>
+            <Sep />
+            <Btn
+              onClick={() => editor.chain().focus().updateAttributes("image", { width: "50%", height: null }).run()}
+              active={false}
+              title="50% Size"
+            >
+              <Minimize2 className="w-4 h-4" />
+            </Btn>
+            <Btn
+              onClick={() => editor.chain().focus().updateAttributes("image", { width: null, height: null }).run()}
+              active={false}
+              title="Full Size"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </Btn>
+            <Sep />
+            <Btn
+              onClick={() => editor.chain().focus().deleteSelection().run()}
+              active={false}
+              title="Delete Image"
+            >
+              <Trash2 className="w-4 h-4 text-red-500" />
+            </Btn>
+          </>
+        )}
 
         <Sep />
 

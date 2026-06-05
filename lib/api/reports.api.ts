@@ -4,6 +4,7 @@ import { apiAxios } from "./client";
 
 export type PeriodType = "daily" | "weekly" | "monthly" | "quarterly";
 export type ReportStatus = "draft" | "submitted";
+export type ReportVisibility = "everyone" | "department_only" | "admins_only" | "private";
 
 export interface TaskReportAuthor {
   _id: string;
@@ -25,6 +26,12 @@ export interface TaskReportAttachment {
   bytes: number;
 }
 
+export interface AllowedViewer {
+  _id: string;
+  name: string;
+  email: string;
+}
+
 export interface TaskReport {
   _id: string;
   title: string;
@@ -35,6 +42,8 @@ export interface TaskReport {
   department: TaskReportDepartment;
   author: TaskReportAuthor;
   status: ReportStatus;
+  visibility: ReportVisibility;
+  allowedViewers: AllowedViewer[];
   nextPlan: string;
   attachments: TaskReportAttachment[];
   createdAt: string;
@@ -58,6 +67,7 @@ export interface TaskReportFilters {
   department?: string;
   author?: string;
   status?: ReportStatus;
+  visibility?: ReportVisibility;
   sortBy?: "createdAt" | "periodStart" | "title";
   sortOrder?: "asc" | "desc";
   dateFrom?: string;
@@ -73,6 +83,8 @@ export interface CreateTaskReportData {
   department: string;
   status?: ReportStatus;
   nextPlan?: string;
+  visibility?: ReportVisibility;
+  allowedViewers?: string[];
 }
 
 export interface UpdateTaskReportData {
@@ -84,6 +96,8 @@ export interface UpdateTaskReportData {
   department?: string;
   status?: ReportStatus;
   nextPlan?: string;
+  visibility?: ReportVisibility;
+  allowedViewers?: string[];
 }
 
 // ─── API Functions ────────────────────────────────────────────────────────────

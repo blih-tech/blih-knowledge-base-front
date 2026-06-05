@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -11,6 +11,11 @@ import { AdminChatInterface } from "@/components/AdminChatInterface";
 import { PolicyGuard } from "@/components/PolicyGuard";
 import type { Permission } from "@/lib/permissions";
 
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +27,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
@@ -45,15 +53,25 @@ import {
   ClipboardList,
   UserCircle,
   ScrollText,
+  BookOpen,
+  ChevronRight,
 } from "lucide-react";
 
 // ─── Nav config (permission-gated, grouped) ─────────────────────────────────
+
+interface NavSubItem {
+  href: string;
+  label: string;
+  icon?: React.ElementType;
+  permission?: Permission;
+}
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
   permission?: Permission;
+  children?: NavSubItem[];
 }
 
 interface NavGroup {
@@ -71,8 +89,16 @@ const navGroups: NavGroup[] = [
   {
     label: "Content",
     items: [
-      { href: "/admin/structure", label: "Manage Structure", icon: Folder, permission: "structure:manage" },
-      { href: "/admin/content", label: "Manage Content", icon: FileText, permission: "content:manage" },
+      {
+        href: "/admin/structure",
+        label: "Knowledge Base",
+        icon: BookOpen,
+        permission: "structure:manage",
+        children: [
+          { href: "/admin/structure", label: "Categories & Sections", icon: Folder, permission: "structure:manage" },
+          { href: "/admin/content", label: "Documents", icon: FileText, permission: "content:manage" },
+        ],
+      },
       { href: "/admin/faq", label: "FAQs", icon: HelpCircle, permission: "faq:manage" },
       { href: "/admin/policies", label: "Policies", icon: ScrollText, permission: "policies:manage" },
     ],
@@ -101,6 +127,10 @@ function AdminSidebar() {
   const pathname = usePathname();
   const { open } = useAdminAI();
   const { hasPermission } = useAuth();
+
+  // Auto-expand collapsible if any child is active
+  const isKBActive = pathname.startsWith("/admin/structure") || pathname.startsWith("/admin/content");
+  const [kbOpen, setKbOpen] = useState(isKBActive);
 
   return (
     <Sidebar collapsible="icon">
@@ -132,7 +162,55 @@ function AdminSidebar() {
             <SidebarGroup key={group.label}>
               <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
               <SidebarMenu>
-                {visibleItems.map(({ href, label, icon: Icon }) => {
+                {visibleItems.map((item) => {
+                  const { href, label, icon: Icon, children } = item;
+
+                  // ── Collapsible nested item ──
+                  if (children && children.length > 0) {
+                    const visibleChildren = children.filter(
+                      (c) => !c.permission || hasPermission(c.permission),
+                    );
+                    if (visibleChildren.length === 0) return null;
+
+                    return (
+                      <Collapsible
+                        key={href}
+                        asChild
+                        open={kbOpen}
+                        onOpenChange={setKbOpen}
+                        className="group/collapsible"
+                      >
+                        <SidebarMenuItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuButton tooltip={label} isActive={isKBActive}>
+                              <Icon className="size-4" />
+                              <span>{label}</span>
+                              <ChevronRight className="ml-auto size-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                            </SidebarMenuButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <SidebarMenuSub>
+                              {visibleChildren.map((child) => {
+                                const childActive = pathname === child.href || pathname.startsWith(child.href + "/");
+                                return (
+                                  <SidebarMenuSubItem key={child.href}>
+                                    <SidebarMenuSubButton asChild isActive={childActive}>
+                                      <Link href={child.href}>
+                                        {child.icon && <child.icon className="size-4" />}
+                                        <span>{child.label}</span>
+                                      </Link>
+                                    </SidebarMenuSubButton>
+                                  </SidebarMenuSubItem>
+                                );
+                              })}
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
+                        </SidebarMenuItem>
+                      </Collapsible>
+                    );
+                  }
+
+                  // ── Regular flat item ──
                   const isActive = pathname === href || pathname.startsWith(href + "/");
                   return (
                     <SidebarMenuItem key={href}>
@@ -281,6 +359,14 @@ function AccessDenied() {
 function getRequiredPermission(pathname: string): Permission | null {
   for (const group of navGroups) {
     for (const item of group.items) {
+      // Check children first (more specific matches)
+      if (item.children) {
+        for (const child of item.children) {
+          if (pathname === child.href || pathname.startsWith(child.href + "/")) {
+            return child.permission ?? null;
+          }
+        }
+      }
       if (pathname === item.href || pathname.startsWith(item.href + "/")) {
         return item.permission ?? null;
       }
