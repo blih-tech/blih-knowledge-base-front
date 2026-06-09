@@ -4,12 +4,7 @@ import { apiAxios } from "./client";
 
 export type InitiativeStatus =
   | "draft"
-  | "submitted"
-  | "under_review"
-  | "approved"
-  | "rejected"
-  | "in_progress"
-  | "completed";
+  | "submitted";
 
 export interface InitiativeAuthor {
   _id: string;

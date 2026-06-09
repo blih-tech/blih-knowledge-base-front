@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   Lightbulb, Plus, Loader2, AlertCircle, Building2, ChevronLeft,
-  Save, Send, Trash2, Edit3, Clock, User, Download, X, Filter, Users,
+  Save, Send, Clock, User, Download, X, Filter, Users,
 } from "lucide-react";
 
 const STATUSES: { value: InitiativeStatus | ""; label: string }[] = [
@@ -86,34 +86,33 @@ function InitiativeCard({ item, onClick }: { item: Initiative; onClick: () => vo
 
 // ─── Detail View ──────────────────────────────────────────────────────────────
 
-function InitiativeDetail({ item, onBack, onEdit, onDelete, canManage }: {
-  item: Initiative; onBack: () => void; onEdit: () => void; onDelete: () => void; canManage: boolean;
+function InitiativeDetail({ item, onBack, onEdit, isOwner }: {
+  item: Initiative; onBack: () => void; onEdit: () => void; isOwner: boolean;
 }) {
   const Section = ({ label, html }: { label: string; html: string }) =>
     html ? (<div><h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{label}</h3><div className="prose prose-sm max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: html }} /></div>) : null;
+
+  const canEdit = isOwner && item.status === "draft";
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" className="gap-1 -ml-2 text-muted-foreground" onClick={onBack}><ChevronLeft className="w-4 h-4" /> Back</Button>
-        <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => exportInitiativePdf(item)}><Download className="w-3.5 h-3.5" /> Export PDF</Button>
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={onEdit}>Edit Draft</Button>
+          )}
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => exportInitiativePdf(item)}><Download className="w-3.5 h-3.5" /> Export PDF</Button>
+        </div>
       </div>
       <Card className="overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-amber-500 via-orange-400 to-amber-600" />
         <div className="p-6 space-y-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-lg font-bold">{item.title}</h1>
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <Badge variant="outline" className={STATUS_COLORS[item.status]}>{item.status.replace("_", " ")}</Badge>
-              </div>
+          <div>
+            <h1 className="text-lg font-bold">{item.title}</h1>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <Badge variant="outline" className={STATUS_COLORS[item.status]}>{item.status.replace("_", " ")}</Badge>
             </div>
-            {canManage && (
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={onEdit}><Edit3 className="w-3 h-3" /> Edit</Button>
-                <Button variant="outline" size="sm" className="gap-1 text-xs text-red-600 hover:bg-red-50" onClick={onDelete}><Trash2 className="w-3 h-3" /> Delete</Button>
-              </div>
-            )}
           </div>
           <Separator />
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -287,23 +286,20 @@ function InitiativeForm({ item, departments, userDeptId, onSave, onCancel }: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function AdminInitiativesPage() {
-  const { user, hasPermission } = useAuth();
-  const canManage = hasPermission("initiatives:manage");
+export default function EmployeeInitiativesPage() {
+  const { user } = useAuth();
   const [view, setView] = useState<"list" | "detail" | "form">("list");
   const [selected, setSelected] = useState<Initiative | null>(null);
   const [editing, setEditing] = useState<Initiative | null>(null);
   const [filterStatus, setFilterStatus] = useState<InitiativeStatus | "">("");
-  const [filterDept, setFilterDept] = useState("");
   const [page, setPage] = useState(1);
 
   const filters: InitiativeFilters = { page, limit: 15 };
   if (filterStatus) filters.status = filterStatus;
-  if (filterDept) filters.department = filterDept;
 
   const { initiatives, totalPages, total, isLoading, error } = useInitiatives(filters);
   const { departments = [] } = useDepartments({}) as { departments: Department[] };
-  const { createInitiative: createMut, updateInitiative: updateMut, deleteInitiative: deleteMut } = useInitiativeMutations();
+  const { createInitiative: createMut, updateInitiative: updateMut } = useInitiativeMutations();
 
   const handleSave = async (data: CreateInitiativeData) => {
     if (editing) {
@@ -315,43 +311,51 @@ export default function AdminInitiativesPage() {
     setView("list");
   };
 
-  const handleDelete = async () => {
-    if (!selected || !confirm("Delete this initiative?")) return;
-    await deleteMut.mutateAsync(selected._id);
-    setSelected(null);
-    setView("list");
-  };
-
-
   if (view === "detail" && selected) {
+    const isOwner = selected.author?._id === user?._id;
     return (
-      <InitiativeDetail item={selected} onBack={() => { setSelected(null); setView("list"); }}
-        onEdit={() => { setEditing(selected); setView("form"); }} onDelete={handleDelete}
-        canManage={canManage || selected.author?._id === user?._id} />
+      <div className="max-w-3xl mx-auto">
+        <InitiativeDetail
+          item={selected}
+          onBack={() => { setSelected(null); setView("list"); }}
+          onEdit={() => { setEditing(selected); setView("form"); }}
+          isOwner={isOwner}
+        />
+      </div>
     );
   }
 
   if (view === "form") {
     return (
-      <InitiativeForm item={editing} departments={departments} userDeptId={user?.department}
-        onSave={handleSave} onCancel={() => { setEditing(null); setView("list"); }} />
+      <div className="max-w-3xl mx-auto">
+        <InitiativeForm
+          item={editing}
+          departments={departments}
+          userDeptId={user?.department}
+          onSave={handleSave}
+          onCancel={() => { setEditing(null); setView("list"); }}
+        />
+      </div>
     );
   }
 
-  const hasFilters = !!filterStatus || !!filterDept;
+  const hasFilters = !!filterStatus;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="max-w-3xl mx-auto pt-6 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-amber-500/10">
             <Lightbulb className="w-5 h-5 text-amber-600" />
-            <h1 className="text-xl font-bold tracking-tight">Initiatives</h1>
-            {total > 0 && <Badge variant="secondary" className="text-xs">{total}</Badge>}
           </div>
-          <p className="text-sm text-muted-foreground mt-0.5">Employee initiative proposals</p>
+          <div>
+            <h1 className="text-xl font-bold">Initiatives</h1>
+            <p className="text-sm text-muted-foreground">Share your ideas to improve the company</p>
+          </div>
         </div>
-        <Button size="sm" className="gap-1.5" onClick={() => { setEditing(null); setView("form"); }}><Plus className="w-4 h-4" /> New Initiative</Button>
+        <Button size="sm" className="gap-1.5" onClick={() => { setEditing(null); setView("form"); }}>
+          <Plus className="w-4 h-4" /> New Initiative
+        </Button>
       </div>
 
       <Card className="overflow-hidden">
@@ -362,22 +366,17 @@ export default function AdminInitiativesPage() {
             className="h-8 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
             {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
-          <select value={filterDept} onChange={(e) => { setFilterDept(e.target.value); setPage(1); }}
-            className="h-8 rounded-md border border-input bg-background px-2.5 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-ring">
-            <option value="">All Departments</option>
-            {departments.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
-          </select>
-          {hasFilters && <Button variant="ghost" size="sm" className="h-8 text-xs gap-1" onClick={() => { setFilterStatus(""); setFilterDept(""); setPage(1); }}><X className="w-3 h-3" /> Clear</Button>}
+          {hasFilters && <Button variant="ghost" size="sm" className="h-8 text-xs gap-1" onClick={() => { setFilterStatus(""); setPage(1); }}><X className="w-3 h-3" /> Clear</Button>}
         </div>
       </Card>
 
       {isLoading && <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-amber-600" /></div>}
       {error && <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center"><AlertCircle className="w-6 h-6 text-red-500 mx-auto mb-2" /><p className="text-sm text-red-700">{error}</p></div>}
       {!isLoading && !error && initiatives.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border p-12 text-center">
-          <Lightbulb className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">{hasFilters ? "No initiatives match filters." : "No initiatives yet."}</p>
-        </div>
+        <Card className="p-12 text-center">
+          <Lightbulb className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-muted-foreground">{hasFilters ? "No initiatives match your filter." : "No initiatives yet. Be the first to submit one!"}</p>
+        </Card>
       )}
       {!isLoading && initiatives.length > 0 && (
         <div className="space-y-3">
