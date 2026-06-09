@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   Lightbulb, Plus, Loader2, AlertCircle, Building2, ChevronLeft,
-  Save, Send, Trash2, Edit3, Clock, User, Download, X, Filter,
+  Save, Send, Trash2, Edit3, Clock, User, Download, X, Filter, Users,
 } from "lucide-react";
 
 const STATUSES: { value: InitiativeStatus | ""; label: string }[] = [
@@ -53,19 +53,18 @@ function exportInitiativePdf(i: Initiative) {
   if (!w) return;
   const sec = (label: string, html: string) =>
     html ? `<div class="section"><div class="section-label">${label}</div><div class="content">${html}</div></div>` : "";
+  const supportNames = i.supportNeeded?.map((d) => d.name).join(", ") || "—";
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${i.title}</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a2e;padding:48px;max-width:800px;margin:0 auto;line-height:1.6}.header{border-bottom:2px solid #e2e8f0;padding-bottom:20px;margin-bottom:24px}.title{font-size:22px;font-weight:700;margin-bottom:8px}.meta{display:flex;flex-wrap:wrap;gap:20px;font-size:12px;color:#64748b;margin-top:12px}.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600;text-transform:capitalize}.section{margin-top:24px}.section-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:700;color:#94a3b8;margin-bottom:8px}.content{font-size:14px}.content p{margin-bottom:8px}.content ul,.content ol{margin-left:20px;margin-bottom:8px}.content table{border-collapse:collapse;width:100%;margin:12px 0}.content th,.content td{border:1px solid #e2e8f0;padding:6px 10px;font-size:13px;text-align:left}.content th{background:#f8fafc;font-weight:600}.footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}@media print{body{padding:0}}</style></head><body>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a2e;padding:48px;max-width:800px;margin:0 auto;line-height:1.6}.header{border-bottom:2px solid #e2e8f0;padding-bottom:20px;margin-bottom:24px}.title{font-size:22px;font-weight:700;margin-bottom:8px}.meta{display:flex;flex-wrap:wrap;gap:20px;font-size:12px;color:#64748b;margin-top:12px}.section{margin-top:24px}.section-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:700;color:#94a3b8;margin-bottom:8px}.content{font-size:14px}.content p{margin-bottom:8px}.content ul,.content ol{margin-left:20px;margin-bottom:8px}.footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}@media print{body{padding:0}}</style></head><body>
 <div class="header"><div class="title">${i.title}</div><div class="meta">
-<div>Author: <strong>${i.author?.name||"—"}</strong></div>
-<div>Department: <strong>${i.department?.name||"—"}</strong></div>
+<div>Author: <strong>${i.author?.name || "—"}</strong></div>
+<div>Department: <strong>${i.department?.name || "—"}</strong></div>
 <div>Status: <strong>${i.status}</strong></div>
+<div>Support: <strong>${supportNames}</strong></div>
 <div>Created: ${formatDate(i.createdAt)}</div>
 </div></div>
 ${sec("Problem", i.problem)}${sec("Why It Matters", i.whyItMatters)}${sec("Proposed Solution", i.proposedSolution)}${sec("Execution Plan", i.executionPlan)}${sec("Expected Outcome", i.expectedOutcome)}
-${i.supportNeeded ? `<div class="section"><div class="section-label">Support Needed</div><div class="content">${i.supportNeeded}</div></div>` : ""}
-${i.meetingTitle ? `<div class="section"><div class="section-label">Meeting</div><div class="content"><strong>${i.meetingTitle}</strong>${i.meetingDate ? ` — ${formatDate(i.meetingDate)}` : ""}${i.attendees ? `<br/>Attendees: ${i.attendees}` : ""}</div></div>` : ""}
-${sec("Key Updates", i.keyUpdates)}${sec("Next Steps", i.nextSteps)}
-<div class="footer">Generated on ${new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric",hour:"2-digit",minute:"2-digit"})}</div>
+<div class="footer">Generated on ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
 <script>window.onload=function(){window.print();}</script></body></html>`;
   w.document.write(html);
   w.document.close();
@@ -136,7 +135,12 @@ function InitiativeDetail({ item, onBack, onEdit, onDelete, canManage, onStatusC
             <div className="flex items-center gap-1.5 text-muted-foreground"><User className="w-3.5 h-3.5" /><span className="font-medium text-foreground">{item.author?.name}</span></div>
             <div className="flex items-center gap-1.5 text-muted-foreground"><Building2 className="w-3.5 h-3.5" /><span className="font-medium text-foreground">{item.department?.name}</span></div>
             <div className="flex items-center gap-1.5 text-muted-foreground"><Clock className="w-3.5 h-3.5" />Created {formatDate(item.createdAt)}</div>
-            {item.supportNeeded && <div className="flex items-center gap-1.5 text-muted-foreground"><span className="text-foreground">Support: {item.supportNeeded}</span></div>}
+            {item.supportNeeded?.length > 0 && (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Users className="w-3.5 h-3.5" />
+                <span className="font-medium text-foreground">{item.supportNeeded.map((d) => d.name).join(", ")}</span>
+              </div>
+            )}
           </div>
           <Separator />
           <Section label="Problem" html={item.problem} />
@@ -144,11 +148,63 @@ function InitiativeDetail({ item, onBack, onEdit, onDelete, canManage, onStatusC
           <Section label="Proposed Solution" html={item.proposedSolution} />
           <Section label="Execution Plan" html={item.executionPlan} />
           <Section label="Expected Outcome" html={item.expectedOutcome} />
-          {item.meetingTitle && (<><Separator /><div><h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Meeting Info</h3><p className="text-sm"><strong>{item.meetingTitle}</strong>{item.meetingDate && ` — ${formatDate(item.meetingDate)}`}</p>{item.attendees && <p className="text-xs text-muted-foreground mt-1">Attendees: {item.attendees}</p>}</div></>)}
-          <Section label="Key Updates" html={item.keyUpdates} />
-          <Section label="Next Steps" html={item.nextSteps} />
         </div>
       </Card>
+    </div>
+  );
+}
+
+// ─── Multi-Select Department Picker ───────────────────────────────────────────
+
+function DepartmentMultiSelect({
+  departments,
+  selected,
+  onChange,
+}: {
+  departments: Department[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const toggle = (id: string) => {
+    onChange(
+      selected.includes(id)
+        ? selected.filter((s) => s !== id)
+        : [...selected, id]
+    );
+  };
+
+  const selectedDepts = departments.filter((d) => selected.includes(d._id));
+
+  return (
+    <div className="space-y-2">
+      {selectedDepts.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selectedDepts.map((d) => (
+            <Badge key={d._id} variant="secondary" className="gap-1 text-xs pr-1">
+              {d.name}
+              <button
+                type="button"
+                onClick={() => toggle(d._id)}
+                className="ml-0.5 rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+      <select
+        value=""
+        onChange={(e) => { if (e.target.value) toggle(e.target.value); }}
+        className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+      >
+        <option value="">Add a team...</option>
+        {departments
+          .filter((d) => !selected.includes(d._id))
+          .map((d) => (
+            <option key={d._id} value={d._id}>{d.name}</option>
+          ))}
+      </select>
     </div>
   );
 }
@@ -167,12 +223,7 @@ function InitiativeForm({ item, departments, userDeptId, onSave, onCancel }: {
     proposedSolution: item?.proposedSolution || "",
     executionPlan: item?.executionPlan || "",
     expectedOutcome: item?.expectedOutcome || "",
-    supportNeeded: item?.supportNeeded || "",
-    meetingTitle: item?.meetingTitle || "",
-    meetingDate: item?.meetingDate?.slice(0, 10) || "",
-    attendees: item?.attendees || "",
-    keyUpdates: item?.keyUpdates || "",
-    nextSteps: item?.nextSteps || "",
+    supportNeeded: item?.supportNeeded?.map((d) => d._id) || [] as string[],
     department: item?.department?._id || userDeptId || departments[0]?._id || "",
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -183,7 +234,7 @@ function InitiativeForm({ item, departments, userDeptId, onSave, onCancel }: {
     setIsSaving(true);
     setError(null);
     try {
-      await onSave({ ...form, meetingDate: form.meetingDate || null, status });
+      await onSave({ ...form, status });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
       setIsSaving(false);
@@ -194,7 +245,7 @@ function InitiativeForm({ item, departments, userDeptId, onSave, onCancel }: {
     <div className="space-y-1.5">
       <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}{required && " *"}</label>
       <div className="border border-input rounded-lg overflow-hidden">
-        <RichTextEditor value={form[field]} onChange={(html) => setForm((f) => ({ ...f, [field]: html }))} placeholder={placeholder} />
+        <RichTextEditor value={form[field] as string} onChange={(html) => setForm((f) => ({ ...f, [field]: html }))} placeholder={placeholder} />
       </div>
     </div>
   );
@@ -227,27 +278,13 @@ function InitiativeForm({ item, departments, userDeptId, onSave, onCancel }: {
           <RichField label="Execution Plan" field="executionPlan" placeholder="Step 1, Step 2..." />
           <RichField label="Expected Outcome" field="expectedOutcome" placeholder="Metrics / result..." />
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Support Needed</label>
-            <Input value={form.supportNeeded} onChange={(e) => setForm((f) => ({ ...f, supportNeeded: e.target.value }))} placeholder="Teams or resources needed" />
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Support Needed (Teams)</label>
+            <DepartmentMultiSelect
+              departments={departments}
+              selected={form.supportNeeded}
+              onChange={(ids) => setForm((f) => ({ ...f, supportNeeded: ids }))}
+            />
           </div>
-          <Separator />
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Meeting Info (Optional)</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Meeting Title</label>
-              <Input value={form.meetingTitle} onChange={(e) => setForm((f) => ({ ...f, meetingTitle: e.target.value }))} placeholder="Meeting title" />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Date</label>
-              <Input type="date" value={form.meetingDate} onChange={(e) => setForm((f) => ({ ...f, meetingDate: e.target.value }))} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Attendees</label>
-              <Input value={form.attendees} onChange={(e) => setForm((f) => ({ ...f, attendees: e.target.value }))} placeholder="Comma-separated names" />
-            </div>
-          </div>
-          <RichField label="Key Updates" field="keyUpdates" placeholder="Points aligned..." />
-          <RichField label="Next Steps" field="nextSteps" placeholder="What comes next..." />
           {error && <div className="flex items-center gap-1.5 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"><AlertCircle className="w-3.5 h-3.5 shrink-0" /> {error}</div>}
           <div className="flex items-center gap-2 pt-1">
             <Button size="sm" variant="outline" className="gap-1.5" disabled={isSaving} onClick={() => submit("draft")}>

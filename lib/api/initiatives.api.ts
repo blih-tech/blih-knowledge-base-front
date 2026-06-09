@@ -23,14 +23,6 @@ export interface InitiativeDepartment {
   name: string;
 }
 
-export interface InitiativeAttachment {
-  publicId: string;
-  url: string;
-  originalFilename: string;
-  format: string;
-  bytes: number;
-}
-
 export interface Initiative {
   _id: string;
   title: string;
@@ -39,16 +31,10 @@ export interface Initiative {
   proposedSolution: string;
   executionPlan: string;
   expectedOutcome: string;
-  supportNeeded: string;
-  meetingTitle: string;
-  meetingDate: string | null;
-  attendees: string;
-  keyUpdates: string;
-  nextSteps: string;
+  supportNeeded: InitiativeDepartment[];
   status: InitiativeStatus;
   department: InitiativeDepartment;
   author: InitiativeAuthor;
-  attachments: InitiativeAttachment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -82,12 +68,7 @@ export interface CreateInitiativeData {
   proposedSolution: string;
   executionPlan?: string;
   expectedOutcome?: string;
-  supportNeeded?: string;
-  meetingTitle?: string;
-  meetingDate?: string | null;
-  attendees?: string;
-  keyUpdates?: string;
-  nextSteps?: string;
+  supportNeeded?: string[];
   department: string;
   status?: InitiativeStatus;
 }
@@ -99,12 +80,7 @@ export interface UpdateInitiativeData {
   proposedSolution?: string;
   executionPlan?: string;
   expectedOutcome?: string;
-  supportNeeded?: string;
-  meetingTitle?: string;
-  meetingDate?: string | null;
-  attendees?: string;
-  keyUpdates?: string;
-  nextSteps?: string;
+  supportNeeded?: string[];
   department?: string;
   status?: InitiativeStatus;
 }
