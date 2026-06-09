@@ -7,9 +7,11 @@ import {
   deleteInitiative,
   listInitiatives,
   updateInitiative,
-  updateInitiativeStatus,
+  rateInitiative,
+  commentOnInitiative,
+  deleteInitiativeComment,
+  toggleInitiativeReaction,
   type InitiativeFilters,
-  type InitiativeStatus,
 } from "@/lib/api/initiatives.api";
 
 export function useInitiatives(filters: InitiativeFilters = {}) {
@@ -62,16 +64,41 @@ export function useInitiativeMutations() {
     onSuccess: invalidate,
   });
 
-  const changeStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: InitiativeStatus }) =>
-      updateInitiativeStatus(id, status),
-    onSuccess: invalidate,
-  });
-
   return {
     createInitiative: create,
     updateInitiative: update,
     deleteInitiative: remove,
-    updateStatus: changeStatus,
   };
+}
+
+export function useInitiativeInteractions() {
+  const queryClient = useQueryClient();
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.initiatives.all });
+
+  const rate = useMutation({
+    mutationFn: ({ id, value }: { id: string; value: number }) =>
+      rateInitiative(id, value),
+    onSuccess: invalidate,
+  });
+
+  const comment = useMutation({
+    mutationFn: ({ id, text }: { id: string; text: string }) =>
+      commentOnInitiative(id, text),
+    onSuccess: invalidate,
+  });
+
+  const removeComment = useMutation({
+    mutationFn: ({ id, commentId }: { id: string; commentId: string }) =>
+      deleteInitiativeComment(id, commentId),
+    onSuccess: invalidate,
+  });
+
+  const react = useMutation({
+    mutationFn: ({ id, emoji }: { id: string; emoji: string }) =>
+      toggleInitiativeReaction(id, emoji),
+    onSuccess: invalidate,
+  });
+
+  return { rate, comment, removeComment, react };
 }

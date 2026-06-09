@@ -8,4 +8,4 @@ export { useSurveys, useSurveyDetail, useSurveyResponses, useSurveySummary, useS
 export { useProfile, useProfileMutations } from "./use-profile";
 export { useAiMutations } from "./use-ai";
 export { usePolicies, usePolicyDetail, usePolicyAcceptances, useComplianceReport, useActivePolicies, usePolicyVersions, usePolicyVersion, usePolicyMutations } from "./use-policies";
-export { useInitiatives, useInitiativeMutations } from "./use-initiatives";
+export { useInitiatives, useInitiativeMutations, useInitiativeInteractions } from "./use-initiatives";

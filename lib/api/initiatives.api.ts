@@ -18,6 +18,25 @@ export interface InitiativeDepartment {
   name: string;
 }
 
+export interface InitiativeRating {
+  user: { _id: string; name: string };
+  value: number;
+  createdAt: string;
+}
+
+export interface InitiativeComment {
+  _id: string;
+  user: { _id: string; name: string; email: string };
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InitiativeReaction {
+  user: { _id: string; name: string };
+  emoji: string;
+}
+
 export interface Initiative {
   _id: string;
   title: string;
@@ -30,6 +49,12 @@ export interface Initiative {
   status: InitiativeStatus;
   department: InitiativeDepartment;
   author: InitiativeAuthor;
+  ratings: InitiativeRating[];
+  comments: InitiativeComment[];
+  reactions: InitiativeReaction[];
+  averageRating: number;
+  ratingsCount: number;
+  commentsCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -80,7 +105,7 @@ export interface UpdateInitiativeData {
   status?: InitiativeStatus;
 }
 
-// ─── API Functions ────────────────────────────────────────────────────────────
+// ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export async function listInitiatives(
   filters: InitiativeFilters = {},
@@ -113,14 +138,28 @@ export async function updateInitiative(
   return data.data;
 }
 
-export async function updateInitiativeStatus(
-  id: string,
-  status: InitiativeStatus,
-): Promise<Initiative> {
-  const { data } = await apiAxios.patch(`/initiatives/${id}/status`, { status });
+export async function deleteInitiative(id: string): Promise<void> {
+  await apiAxios.delete(`/initiatives/${id}`);
+}
+
+// ─── Interactions ─────────────────────────────────────────────────────────────
+
+export async function rateInitiative(id: string, value: number): Promise<Initiative> {
+  const { data } = await apiAxios.post(`/initiatives/${id}/ratings`, { value });
   return data.data;
 }
 
-export async function deleteInitiative(id: string): Promise<void> {
-  await apiAxios.delete(`/initiatives/${id}`);
+export async function commentOnInitiative(id: string, text: string): Promise<Initiative> {
+  const { data } = await apiAxios.post(`/initiatives/${id}/comments`, { text });
+  return data.data;
+}
+
+export async function deleteInitiativeComment(id: string, commentId: string): Promise<Initiative> {
+  const { data } = await apiAxios.delete(`/initiatives/${id}/comments/${commentId}`);
+  return data.data;
+}
+
+export async function toggleInitiativeReaction(id: string, emoji: string): Promise<Initiative> {
+  const { data } = await apiAxios.post(`/initiatives/${id}/reactions`, { emoji });
+  return data.data;
 }

@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/initiatives.api";
 import type { Department } from "@/lib/api/departments.api";
 import { useInitiatives, useInitiativeMutations, useDepartments } from "@/hooks/queries";
+import { InitiativeInteractions } from "@/components/InitiativeInteractions";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,8 +87,8 @@ function InitiativeCard({ item, onClick }: { item: Initiative; onClick: () => vo
 
 // ─── Detail View ──────────────────────────────────────────────────────────────
 
-function InitiativeDetail({ item, onBack, onEdit, onDelete, canManage }: {
-  item: Initiative; onBack: () => void; onEdit: () => void; onDelete: () => void; canManage: boolean;
+function InitiativeDetail({ item, onBack, onEdit, onDelete, canManage, userId }: {
+  item: Initiative; onBack: () => void; onEdit: () => void; onDelete: () => void; canManage: boolean; userId?: string;
 }) {
   const Section = ({ label, html }: { label: string; html: string }) =>
     html ? (<div><h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{label}</h3><div className="prose prose-sm max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: html }} /></div>) : null;
@@ -135,6 +136,7 @@ function InitiativeDetail({ item, onBack, onEdit, onDelete, canManage }: {
           <Section label="Expected Outcome" html={item.expectedOutcome} />
         </div>
       </Card>
+      <InitiativeInteractions initiative={item} userId={userId} isAdmin={canManage} />
     </div>
   );
 }
@@ -327,7 +329,7 @@ export default function AdminInitiativesPage() {
     return (
       <InitiativeDetail item={selected} onBack={() => { setSelected(null); setView("list"); }}
         onEdit={() => { setEditing(selected); setView("form"); }} onDelete={handleDelete}
-        canManage={canManage || selected.author?._id === user?._id} />
+        canManage={canManage || selected.author?._id === user?._id} userId={user?._id} />
     );
   }
 

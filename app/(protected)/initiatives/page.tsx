@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/initiatives.api";
 import type { Department } from "@/lib/api/departments.api";
 import { useInitiatives, useInitiativeMutations, useDepartments } from "@/hooks/queries";
+import { InitiativeInteractions } from "@/components/InitiativeInteractions";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,8 +87,8 @@ function InitiativeCard({ item, onClick }: { item: Initiative; onClick: () => vo
 
 // ─── Detail View ──────────────────────────────────────────────────────────────
 
-function InitiativeDetail({ item, onBack, onEdit, isOwner }: {
-  item: Initiative; onBack: () => void; onEdit: () => void; isOwner: boolean;
+function InitiativeDetail({ item, onBack, onEdit, isOwner, userId }: {
+  item: Initiative; onBack: () => void; onEdit: () => void; isOwner: boolean; userId?: string;
 }) {
   const Section = ({ label, html }: { label: string; html: string }) =>
     html ? (<div><h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{label}</h3><div className="prose prose-sm max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: html }} /></div>) : null;
@@ -134,6 +135,7 @@ function InitiativeDetail({ item, onBack, onEdit, isOwner }: {
           <Section label="Expected Outcome" html={item.expectedOutcome} />
         </div>
       </Card>
+      <InitiativeInteractions initiative={item} userId={userId} />
     </div>
   );
 }
@@ -314,12 +316,13 @@ export default function EmployeeInitiativesPage() {
   if (view === "detail" && selected) {
     const isOwner = selected.author?._id === user?._id;
     return (
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-3xl mx-auto pt-6">
         <InitiativeDetail
           item={selected}
           onBack={() => { setSelected(null); setView("list"); }}
           onEdit={() => { setEditing(selected); setView("form"); }}
           isOwner={isOwner}
+          userId={user?._id}
         />
       </div>
     );
