@@ -55,6 +55,7 @@ import {
   ScrollText,
   BookOpen,
   ChevronRight,
+  Lightbulb,
 } from "lucide-react";
 
 // ─── Nav config (permission-gated, grouped) ─────────────────────────────────
@@ -95,28 +96,84 @@ const navGroups: NavGroup[] = [
         icon: BookOpen,
         permission: "structure:manage",
         children: [
-          { href: "/admin/structure", label: "Categories & Sections", icon: Folder, permission: "structure:manage" },
-          { href: "/admin/content", label: "Documents", icon: FileText, permission: "content:manage" },
+          {
+            href: "/admin/structure",
+            label: "Categories & Sections",
+            icon: Folder,
+            permission: "structure:manage",
+          },
+          {
+            href: "/admin/content",
+            label: "Documents",
+            icon: FileText,
+            permission: "content:manage",
+          },
         ],
       },
-      { href: "/admin/faq", label: "FAQs", icon: HelpCircle, permission: "faq:manage" },
-      { href: "/admin/policies", label: "Policies", icon: ScrollText, permission: "policies:manage" },
+      {
+        href: "/admin/faq",
+        label: "FAQs",
+        icon: HelpCircle,
+        permission: "faq:manage",
+      },
+      {
+        href: "/admin/policies",
+        label: "Policies",
+        icon: ScrollText,
+        permission: "policies:manage",
+      },
     ],
   },
   {
     label: "Organization",
     items: [
-      { href: "/admin/employees", label: "Employees", icon: UserCheck, permission: "employees:manage" },
-      { href: "/admin/departments", label: "Departments", icon: Building2, permission: "departments:manage" },
-      { href: "/admin/clients", label: "Clients", icon: Users, permission: "clients:view" },
+      {
+        href: "/admin/employees",
+        label: "Employees",
+        icon: UserCheck,
+        permission: "employees:manage",
+      },
+      {
+        href: "/admin/departments",
+        label: "Departments",
+        icon: Building2,
+        permission: "departments:manage",
+      },
+      {
+        href: "/admin/clients",
+        label: "Clients",
+        icon: Users,
+        permission: "clients:view",
+      },
     ],
   },
   {
     label: "Operations",
     items: [
-      { href: "/admin/reports", label: "Reports", icon: BarChart3, permission: "reports:view" },
-      { href: "/admin/meetings", label: "Meeting Minutes", icon: CalendarCheck, permission: "meetings:manage" },
-      { href: "/admin/surveys", label: "Surveys", icon: ClipboardList, permission: "surveys:manage" },
+      {
+        href: "/admin/reports",
+        label: "Reports",
+        icon: BarChart3,
+        permission: "reports:view",
+      },
+      {
+        href: "/admin/meetings",
+        label: "Meeting Minutes",
+        icon: CalendarCheck,
+        permission: "meetings:manage",
+      },
+      {
+        href: "/admin/surveys",
+        label: "Surveys",
+        icon: ClipboardList,
+        permission: "surveys:manage",
+      },
+      {
+        href: "/admin/initiatives",
+        label: "Initiatives",
+        icon: Lightbulb,
+        permission: "initiatives:manage",
+      },
     ],
   },
 ];
@@ -129,7 +186,9 @@ function AdminSidebar() {
   const { hasPermission } = useAuth();
 
   // Auto-expand collapsible if any child is active
-  const isKBActive = pathname.startsWith("/admin/structure") || pathname.startsWith("/admin/content");
+  const isKBActive =
+    pathname.startsWith("/admin/structure") ||
+    pathname.startsWith("/admin/content");
   const [kbOpen, setKbOpen] = useState(isKBActive);
 
   return (
@@ -144,7 +203,9 @@ function AdminSidebar() {
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
                   <span className="font-semibold text-sm">Blih Brain</span>
-                  <span className="text-xs text-muted-foreground">Admin Dashboard</span>
+                  <span className="text-xs text-muted-foreground">
+                    Admin Dashboard
+                  </span>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -182,7 +243,10 @@ function AdminSidebar() {
                       >
                         <SidebarMenuItem>
                           <CollapsibleTrigger asChild>
-                            <SidebarMenuButton tooltip={label} isActive={isKBActive}>
+                            <SidebarMenuButton
+                              tooltip={label}
+                              isActive={isKBActive}
+                            >
                               <Icon className="size-4" />
                               <span>{label}</span>
                               <ChevronRight className="ml-auto size-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
@@ -191,12 +255,19 @@ function AdminSidebar() {
                           <CollapsibleContent>
                             <SidebarMenuSub>
                               {visibleChildren.map((child) => {
-                                const childActive = pathname === child.href || pathname.startsWith(child.href + "/");
+                                const childActive =
+                                  pathname === child.href ||
+                                  pathname.startsWith(child.href + "/");
                                 return (
                                   <SidebarMenuSubItem key={child.href}>
-                                    <SidebarMenuSubButton asChild isActive={childActive}>
+                                    <SidebarMenuSubButton
+                                      asChild
+                                      isActive={childActive}
+                                    >
                                       <Link href={child.href}>
-                                        {child.icon && <child.icon className="size-4" />}
+                                        {child.icon && (
+                                          <child.icon className="size-4" />
+                                        )}
                                         <span>{child.label}</span>
                                       </Link>
                                     </SidebarMenuSubButton>
@@ -211,10 +282,15 @@ function AdminSidebar() {
                   }
 
                   // ── Regular flat item ──
-                  const isActive = pathname === href || pathname.startsWith(href + "/");
+                  const isActive =
+                    pathname === href || pathname.startsWith(href + "/");
                   return (
                     <SidebarMenuItem key={href}>
-                      <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={label}
+                      >
                         <Link href={href}>
                           <Icon className="size-4" />
                           <span>{label}</span>
@@ -229,14 +305,19 @@ function AdminSidebar() {
         })}
 
         {/* AI Assistant */}
-        {hasPermission('ai:admin') && (
+        {hasPermission("ai:admin") && (
           <SidebarGroup>
             <SidebarGroupLabel>Tools</SidebarGroupLabel>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton tooltip="AI Assistant" onClick={() => open()}>
+                <SidebarMenuButton
+                  tooltip="AI Assistant"
+                  onClick={() => open()}
+                >
                   <ShieldCheck className="size-4 text-violet-600" />
-                  <span className="text-violet-700 font-medium">AI Assistant</span>
+                  <span className="text-violet-700 font-medium">
+                    AI Assistant
+                  </span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -277,7 +358,9 @@ function AIChatModal() {
 
   useEffect(() => {
     if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [isOpen, close]);
@@ -341,7 +424,8 @@ function AccessDenied() {
       </div>
       <h2 className="text-xl font-bold text-foreground">Access Denied</h2>
       <p className="text-sm text-muted-foreground mt-2 text-center max-w-sm">
-        You don&apos;t have permission to access this page. Contact your administrator if you believe this is a mistake.
+        You don&apos;t have permission to access this page. Contact your
+        administrator if you believe this is a mistake.
       </p>
       <Link
         href="/admin/dashboard"
@@ -362,7 +446,10 @@ function getRequiredPermission(pathname: string): Permission | null {
       // Check children first (more specific matches)
       if (item.children) {
         for (const child of item.children) {
-          if (pathname === child.href || pathname.startsWith(child.href + "/")) {
+          if (
+            pathname === child.href ||
+            pathname.startsWith(child.href + "/")
+          ) {
             return child.permission ?? null;
           }
         }
@@ -378,7 +465,8 @@ function getRequiredPermission(pathname: string): Permission | null {
 // ─── Guard + shell ────────────────────────────────────────────────────────────
 
 function AdminShell({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, canAccessAdmin, isLoading, hasPermission } = useAuth();
+  const { user, isAuthenticated, canAccessAdmin, isLoading, hasPermission } =
+    useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -408,9 +496,15 @@ function AdminShell({ children }: { children: React.ReactNode }) {
           {/* Nav items */}
           <div className="space-y-1.5 mt-2">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg">
+              <div
+                key={i}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
+              >
                 <div className="w-4 h-4 rounded bg-muted skeleton-shimmer" />
-                <div className="h-3 rounded-md bg-muted skeleton-shimmer" style={{ width: `${50 + (i * 12) % 40}%` }} />
+                <div
+                  className="h-3 rounded-md bg-muted skeleton-shimmer"
+                  style={{ width: `${50 + ((i * 12) % 40)}%` }}
+                />
               </div>
             ))}
           </div>
@@ -449,8 +543,12 @@ function AdminShell({ children }: { children: React.ReactNode }) {
               <div className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-background animate-pulse" />
             </div>
             <div className="text-center space-y-1.5">
-              <p className="text-sm font-medium text-foreground">Loading dashboard</p>
-              <p className="text-xs text-muted-foreground">Verifying your credentials…</p>
+              <p className="text-sm font-medium text-foreground">
+                Loading dashboard
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Verifying your credentials…
+              </p>
             </div>
           </div>
         </div>
@@ -471,7 +569,9 @@ function AdminShell({ children }: { children: React.ReactNode }) {
         <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4 sticky top-0 bg-background z-10">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="h-4 mx-2" />
-          <span className="text-sm font-medium text-muted-foreground">Admin</span>
+          <span className="text-sm font-medium text-muted-foreground">
+            Admin
+          </span>
           <div className="ml-auto">
             <Link
               href="/admin/profile"
@@ -479,13 +579,19 @@ function AdminShell({ children }: { children: React.ReactNode }) {
               title="My Profile"
             >
               <UserCircle className="w-5 h-5" />
-              <span className="hidden sm:inline font-medium">{user?.name?.split(' ')[0] ?? 'Profile'}</span>
+              <span className="hidden sm:inline font-medium">
+                {user?.name?.split(" ")[0] ?? "Profile"}
+              </span>
             </Link>
           </div>
         </header>
         <main className="flex-1 overflow-auto p-6">
           <div className="max-w-5xl mx-auto w-full">
-            {hasAccess ? <PolicyGuard>{children}</PolicyGuard> : <AccessDenied />}
+            {hasAccess ? (
+              <PolicyGuard>{children}</PolicyGuard>
+            ) : (
+              <AccessDenied />
+            )}
           </div>
         </main>
       </SidebarInset>
@@ -498,12 +604,14 @@ function AdminShell({ children }: { children: React.ReactNode }) {
 
 // ─── Layout export ────────────────────────────────────────────────────────────
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <AdminAIProvider>
-      <AdminShell>
-        {children}
-      </AdminShell>
+      <AdminShell>{children}</AdminShell>
     </AdminAIProvider>
   );
 }
