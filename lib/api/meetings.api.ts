@@ -81,7 +81,7 @@ export interface MeetingMinuteFilters {
 
 // ─── API functions ────────────────────────────────────────────────────────────
 
-const unwrap = <T>(res: { data: { data: T } }) => res.data.data;
+const unwrap = (res: any) => res.data.data;
 
 // Admin
 export const listMeetingMinutes = (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useMeetings, useMeetingMutations, useDepartments, useEmployees } from "@/hooks/queries";
 import type { MeetingMinute, MeetingMinuteFilters, MeetingStatus, MeetingVisibility, ExternalAttendee } from "@/lib/api/meetings.api";
@@ -88,7 +88,7 @@ export default function AdminMeetingsPage() {
         onBack={goList}
         onEdit={() => openEdit(selected)}
         onDelete={() => handleDelete(selected._id)}
-        isOwner={selected.author?._id === user?.id || user?.isSuperAdmin}
+        isOwner={selected.author?._id === user?.id || !!user?.isSuperAdmin}
       />
     );
   }
@@ -323,6 +323,89 @@ function MeetingDetail({ minute: m, onBack, onEdit, onDelete, isOwner }: {
   );
 }
 
+// Helper functions to parse/build attendee meeting minutes inside content field
+const parseMeetingSummary = (html: string) => {
+  if (typeof window === "undefined" || !html) return "";
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const summarySec = doc.querySelector(".meeting-summary-section .summary-content");
+    if (summarySec) {
+      return summarySec.innerHTML;
+    }
+  } catch (err) {
+    console.error("Error parsing summary:", err);
+  }
+  return "";
+};
+
+const parseAttendeeMinutes = (html: string, attendeeIds: string[]) => {
+  const map: Record<string, string> = {};
+  if (typeof window === "undefined" || !html) return map;
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const sections = doc.querySelectorAll("[data-attendee-id]");
+    if (sections.length > 0) {
+      sections.forEach((sec) => {
+        const id = sec.getAttribute("data-attendee-id");
+        const contentDiv = sec.querySelector(".attendee-content");
+        if (id && contentDiv) {
+          map[id] = contentDiv.innerHTML;
+        }
+      });
+    } else if (attendeeIds.length > 0) {
+      // If there's no summary section and no attendee section, the entire thing might be legacy content.
+      // But let's check if there's any attendee sections at all. If not, assign to first attendee.
+      const hasSummary = doc.querySelector(".meeting-summary-section");
+      if (!hasSummary) {
+        map[attendeeIds[0]] = html;
+      }
+    }
+  } catch (err) {
+    console.error("Error parsing attendee minutes:", err);
+  }
+  return map;
+};
+
+const buildContentHtml = (summaryHtml: string, map: Record<string, string>, selectedEmps: any[]) => {
+  let html = "";
+  if (summaryHtml && summaryHtml.replace(/<[^>]*>/g, "").trim()) {
+    html += `
+<div class="meeting-summary-section border-b pb-5 mb-5">
+  <h3 class="summary-title font-bold text-lg text-foreground mb-2">Meeting Summary</h3>
+  <div class="summary-content">
+    ${summaryHtml}
+  </div>
+</div>
+    `.trim() + "\n";
+  }
+  
+  html += selectedEmps
+    .map((emp) => {
+      const text = map[emp._id] || "";
+      return `
+<div data-attendee-id="${emp._id}" class="attendee-minutes-section border-b pb-4 mb-4 last:border-b-0 last:pb-0 last:mb-0">
+  <h3 class="attendee-name font-semibold text-base text-primary flex items-center gap-2 mb-2">
+    <span class="w-2 h-2 rounded-full bg-primary inline-block"></span>
+    ${emp.name}'s Minutes
+  </h3>
+  <div class="attendee-content pl-4">
+    ${text || "<p class='text-muted-foreground italic'>No minutes recorded.</p>"}
+  </div>
+</div>
+      `.trim();
+    })
+    .join("\n");
+
+  return html;
+};
+
+const hasText = (html: string) => {
+  if (!html) return false;
+  return html.replace(/<[^>]*>/g, "").trim().length > 0;
+};
+
 // ─── Form ─────────────────────────────────────────────────────────────────────
 
 function MeetingForm({ initial, departments, onSave, onCancel, isSaving }: {
@@ -340,7 +423,10 @@ function MeetingForm({ initial, departments, onSave, onCancel, isSaving }: {
   const [attendees, setAttendees] = useState<string[]>(initial?.attendees?.map((a) => a._id) || []);
   const [extAttendees, setExtAttendees] = useState<ExternalAttendee[]>(initial?.externalAttendees || []);
   const [agenda, setAgenda] = useState<string[]>(initial?.agenda || [""]);
-  const [content, setContent] = useState(initial?.content || "");
+  const [summary, setSummary] = useState(() => parseMeetingSummary(initial?.content || ""));
+  const [attendeeContent, setAttendeeContent] = useState<Record<string, string>>(() => {
+    return parseAttendeeMinutes(initial?.content || "", initial?.attendees?.map((a) => a._id) || []);
+  });
   const [actionItems, setActionItems] = useState(
     initial?.actionItems?.map((ai) => ({
       task: ai.task, assignee: ai.assignee?._id || "", dueDate: ai.dueDate?.slice(0, 10) || "", status: ai.status,
@@ -349,12 +435,39 @@ function MeetingForm({ initial, departments, onSave, onCancel, isSaving }: {
   const [visibility, setVisibility] = useState<MeetingVisibility>((initial?.visibility || "everyone") as MeetingVisibility);
   const [allowedViewers, setAllowedViewers] = useState<string[]>(initial?.allowedViewers?.map((v) => v._id) || []);
   const [viewerSearch, setViewerSearch] = useState("");
+  const [attendeeSearch, setAttendeeSearch] = useState("");
 
-  const buildPayload = () => ({
-    title, date, location, department, attendees, externalAttendees: extAttendees,
-    agenda: agenda.filter(Boolean), content, actionItems: actionItems.filter((ai) => ai.task),
-    visibility, allowedViewers: visibility === "private" ? allowedViewers : [],
-  });
+  const selectedAttendees = employees.filter((emp) => attendees.includes(emp._id));
+
+  const hasAnyContent = hasText(summary) || (selectedAttendees.length > 0 && selectedAttendees.some((emp) => hasText(attendeeContent[emp._id] || "")));
+
+  useEffect(() => {
+    if (attendees.length > 0) {
+      const firstDeptId = selectedAttendees.find((e) => e.department?._id)?.department?._id;
+      if (firstDeptId) {
+        setDepartment(firstDeptId);
+      }
+    } else {
+      setDepartment("");
+    }
+    // Clean up assignees who are no longer in attendees list
+    setActionItems((prev) =>
+      prev.map((item) =>
+        item.assignee && !attendees.includes(item.assignee)
+          ? { ...item, assignee: "" }
+          : item
+      )
+    );
+  }, [attendees, employees, selectedAttendees]);
+
+  const buildPayload = () => {
+    const combinedContent = buildContentHtml(summary, attendeeContent, selectedAttendees);
+    return {
+      title, date, location, department, attendees, externalAttendees: extAttendees,
+      agenda: agenda.filter(Boolean), content: combinedContent, actionItems: actionItems.filter((ai) => ai.task),
+      visibility, allowedViewers: visibility === "private" ? allowedViewers : [],
+    };
+  };
 
   const addAgendaItem = () => setAgenda((a) => [...a, ""]);
   const removeAgendaItem = (i: number) => setAgenda((a) => a.filter((_, idx) => idx !== i));
@@ -379,7 +492,7 @@ function MeetingForm({ initial, departments, onSave, onCancel, isSaving }: {
 
       <Card className="p-6 space-y-5">
         {/* Basic fields */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="text-sm font-medium mb-1 block">Title *</label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Weekly standup" />
@@ -392,27 +505,66 @@ function MeetingForm({ initial, departments, onSave, onCancel, isSaving }: {
             <label className="text-sm font-medium mb-1 block">Location</label>
             <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Room 301 / Zoom link" />
           </div>
-          <div>
-            <label className="text-sm font-medium mb-1 block">Department *</label>
-            <select className="w-full border rounded-lg px-3 py-2 text-sm bg-background" value={department} onChange={(e) => setDepartment(e.target.value)}>
-              <option value="">Select department</option>
-              {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
-            </select>
-          </div>
         </div>
 
         {/* Internal Attendees */}
-        <div>
-          <label className="text-sm font-medium mb-1 block">Internal Attendees</label>
-          <select
-            multiple
-            className="w-full border rounded-lg px-3 py-2 text-sm bg-background min-h-[100px]"
-            value={attendees}
-            onChange={(e) => setAttendees(Array.from(e.target.selectedOptions, (o) => o.value))}
-          >
-            {employees.map((emp) => <option key={emp._id} value={emp._id}>{emp.name} ({emp.email})</option>)}
-          </select>
-          <p className="text-xs text-muted-foreground mt-1">Hold Ctrl/Cmd to select multiple</p>
+        <div className="space-y-2">
+          <label className="text-sm font-medium block">Internal Attendees</label>
+          
+          {attendees.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {attendees.map((id) => {
+                const emp = employees.find((e) => e._id === id);
+                return (
+                  <Badge
+                    key={id}
+                    variant="secondary"
+                    className="text-xs py-1 pr-1.5 flex items-center gap-1 cursor-pointer hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-all"
+                    onClick={() => setAttendees((prev) => prev.filter((x) => x !== id))}
+                  >
+                    <User className="w-3 h-3 text-muted-foreground" />
+                    {emp?.name || id}
+                    <X className="w-3.5 h-3.5 text-muted-foreground hover:text-inherit" />
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="relative">
+            <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+            <Input
+              value={attendeeSearch}
+              onChange={(e) => setAttendeeSearch(e.target.value)}
+              placeholder="Search internal employees to add as attendees..."
+              className="pl-9"
+            />
+          </div>
+
+          {attendeeSearch && (
+            <div className="border rounded-lg max-h-48 overflow-y-auto bg-popover shadow-sm">
+              {employees
+                .filter((e) => !attendees.includes(e._id) && e.name.toLowerCase().includes(attendeeSearch.toLowerCase()))
+                .slice(0, 10)
+                .map((e) => (
+                  <button
+                    key={e._id}
+                    type="button"
+                    className="w-full text-left px-4 py-2 text-sm hover:bg-secondary/60 transition-colors flex flex-col"
+                    onClick={() => {
+                      setAttendees((prev) => [...prev, e._id]);
+                      setAttendeeSearch("");
+                    }}
+                  >
+                    <span className="font-medium">{e.name}</span>
+                    <span className="text-xs text-muted-foreground">{e.email}</span>
+                  </button>
+                ))}
+              {employees.filter((e) => !attendees.includes(e._id) && e.name.toLowerCase().includes(attendeeSearch.toLowerCase())).length === 0 && (
+                <div className="p-3 text-xs text-muted-foreground text-center">No employees found</div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* External Attendees */}
@@ -446,10 +598,53 @@ function MeetingForm({ initial, departments, onSave, onCancel, isSaving }: {
           ))}
         </div>
 
-        {/* Content */}
-        <div>
-          <label className="text-sm font-medium mb-1 block">Meeting Minutes *</label>
-          <RichTextEditor value={content} onChange={setContent} placeholder="Write the meeting minutes..." />
+        {/* Meeting Summary */}
+        <div className="space-y-2">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Meeting Summary</label>
+            <span className="text-xs text-muted-foreground">General summary or overview of the meeting.</span>
+          </div>
+          <RichTextEditor
+            value={summary}
+            onChange={setSummary}
+            placeholder="Write a general summary of the meeting..."
+          />
+        </div>
+
+        {/* Attendee-specific Meeting Minutes */}
+        <div className="space-y-4">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium">Meeting Minutes by Attendee *</label>
+            <span className="text-xs text-muted-foreground">Please record specific minutes/notes for each internal attendee.</span>
+          </div>
+
+          {selectedAttendees.length === 0 ? (
+            <div className="border border-dashed rounded-lg p-6 text-center text-sm text-muted-foreground bg-secondary/5">
+              Add internal attendees above to start recording meeting minutes.
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {selectedAttendees.map((emp) => (
+                <div key={emp._id} className="border rounded-lg p-4 space-y-3 bg-secondary/10">
+                  <div className="flex items-center gap-2 font-medium text-sm text-primary">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                    <span>{emp.name}</span>
+                    <span className="text-xs text-muted-foreground font-normal">({emp.email})</span>
+                  </div>
+                  <RichTextEditor
+                    value={attendeeContent[emp._id] || ""}
+                    onChange={(val) => {
+                      setAttendeeContent((prev) => ({
+                        ...prev,
+                        [emp._id]: val,
+                      }));
+                    }}
+                    placeholder={`Write meeting minutes for ${emp.name}...`}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Action Items */}
@@ -463,11 +658,12 @@ function MeetingForm({ initial, departments, onSave, onCancel, isSaving }: {
               <Input placeholder="Task *" value={ai.task} onChange={(e) => updateActionItem(i, "task", e.target.value)} className="flex-[2]" />
               <select className="border rounded-lg px-2 py-2 text-sm bg-background flex-1" value={ai.assignee} onChange={(e) => updateActionItem(i, "assignee", e.target.value)}>
                 <option value="">Assignee</option>
-                {employees.map((emp) => <option key={emp._id} value={emp._id}>{emp.name}</option>)}
+                {selectedAttendees.map((emp) => <option key={emp._id} value={emp._id}>{emp.name}</option>)}
               </select>
               <Input type="date" value={ai.dueDate} onChange={(e) => updateActionItem(i, "dueDate", e.target.value)} className="flex-1" />
               <select className="border rounded-lg px-2 py-2 text-sm bg-background w-28" value={ai.status} onChange={(e) => updateActionItem(i, "status", e.target.value)}>
                 <option value="pending">Pending</option>
+                {/* in-progress and done options can also be here */}
                 <option value="in-progress">In Progress</option>
                 <option value="done">Done</option>
               </select>
@@ -496,8 +692,8 @@ function MeetingForm({ initial, departments, onSave, onCancel, isSaving }: {
                   }}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
                     isActive
-                      ? `${vb.cls} border-current shadow-sm ring-1 ring-current/20`
-                      : "border-input text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                       ? `${vb.cls} border-current shadow-sm ring-1 ring-current/20`
+                       : "border-input text-muted-foreground hover:text-foreground hover:bg-secondary/60"
                   }`}
                 >
                   <VIcon className="w-3.5 h-3.5" />
@@ -573,10 +769,10 @@ function MeetingForm({ initial, departments, onSave, onCancel, isSaving }: {
         {/* Actions */}
         <div className="flex gap-3 pt-4 border-t">
           <Button variant="outline" onClick={onCancel} disabled={isSaving}>Cancel</Button>
-          <Button variant="outline" onClick={() => onSave(buildPayload(), "draft")} disabled={isSaving || !title || !department || !content}>
+          <Button variant="outline" onClick={() => onSave(buildPayload(), "draft")} disabled={isSaving || !title || !department || !hasAnyContent}>
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}Save Draft
           </Button>
-          <Button onClick={() => onSave(buildPayload(), "published")} disabled={isSaving || !title || !department || !content}>
+          <Button onClick={() => onSave(buildPayload(), "published")} disabled={isSaving || !title || !department || !hasAnyContent}>
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Send className="w-4 h-4 mr-1" />}Publish
           </Button>
         </div>

@@ -54,7 +54,7 @@ export interface SurveyFilters { page?: number; limit?: number; status?: SurveyS
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 
-const unwrap = <T>(res: { data: { data: T } }) => res.data.data;
+const unwrap = (res: any) => res.data.data;
 
 // Admin
 export const listSurveys = (f: SurveyFilters = {}): Promise<SurveyListResponse> => apiAxios.get("/surveys", { params: f }).then(unwrap);

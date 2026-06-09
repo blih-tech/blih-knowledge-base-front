@@ -28,12 +28,19 @@ import {
   POLICY_TYPES,          // readonly array of all type strings
   POLICY_TYPE_LABELS,    // Record<PolicyType, string> — human-readable labels
   type PolicyType,       // TypeScript union type
+  getGuestPolicyByType,  // fetch active policy by type — no auth needed
 } from "@/lib/api/policies.api";
 ```
 
 ---
 
 ## API Endpoints
+
+### Guest (requires `x-api-key` header, no user login)
+
+| Method | Endpoint                          | Description                                   |
+|--------|-----------------------------------|-----------------------------------------------|
+| `GET`  | `/policies/guest/:policyType`     | Get an **active** policy by type — requires `x-api-key` |
 
 ### Public (Employee-facing, requires authentication)
 
@@ -75,6 +82,40 @@ import {
 > The frontend `unwrap` helper extracts the `data` field automatically. All examples below show the **unwrapped payload**.
 
 ---
+
+### `GET /policies/guest/:policyType` — Guest Policy (API Key)
+
+Returns a single active policy by type. **No user login required**, but the request must include a valid `x-api-key` header.
+
+**Required Header:**
+```
+x-api-key: <your-guest-api-key>
+```
+
+Only returns active policies with public-safe fields (no `createdBy`, `updatedBy`, or `acceptanceCount`).
+
+Example: `GET /policies/guest/terms-and-conditions`
+
+```json
+{
+  "_id": "6840a1b2c3d4e5f678901234",
+  "policyType": "terms-and-conditions",
+  "title": "Terms and Conditions",
+  "slug": "terms-and-conditions",
+  "version": 2,
+  "isRequired": true,
+  "publishedAt": "2026-06-01T10:00:00.000Z",
+  "contentHtml": "<h1>Terms and Conditions</h1><p>...</p>",
+  "contentJson": { "type": "doc", "content": [...] },
+  "contentText": "Terms and Conditions ..."
+}
+```
+
+**Error Responses:**
+- `401` — Missing `x-api-key` header
+- `403` — Invalid API key
+- `404` — Policy type not found or not in `active` status
+- `503` — `GUEST_API_KEY` not configured on the server
 
 ### `GET /policies/public` — Active Policies (Employee)
 
@@ -214,19 +255,55 @@ Query params: `?page=1&limit=20&status=active`
 
 ## Frontend Usage Examples
 
-### 1. Fetch a specific policy by type (no ID needed)
+### 1. Fetch a policy without login (guest, with API key)
+
+```tsx
+import { getGuestPolicyByType } from "@/lib/api/policies.api";
+
+// No user login needed — x-api-key is injected automatically from env
+const terms = await getGuestPolicyByType("terms-and-conditions");
+console.log(terms.title);       // "Terms and Conditions"
+console.log(terms.contentHtml); // "<h1>Terms and Conditions</h1>..."
+```
+
+> **Setup:** Set `NEXT_PUBLIC_GUEST_API_KEY` in your `.env.local` to match the backend's `GUEST_API_KEY`.
+
+### 2. Fetch a specific policy by type (admin, authenticated)
 
 ```tsx
 import { getPolicyByType } from "@/lib/api/policies.api";
 
-// Direct async call
+// Requires policies:manage permission
 const terms = await getPolicyByType("terms-and-conditions");
 console.log(terms.title);       // "Terms and Conditions"
 console.log(terms.contentHtml); // "<h1>Terms and Conditions</h1>..."
 console.log(terms.version);     // 2
 ```
 
-### 2. React Query hook for a specific policy type
+### 3. React Query hook for guest policy (no auth)
+
+```tsx
+import { useQuery } from "@tanstack/react-query";
+import { getGuestPolicyByType } from "@/lib/api/policies.api";
+
+function PublicTermsPage() {
+  const { data: policy, isLoading } = useQuery({
+    queryKey: ["policies", "guest", "terms-and-conditions"],
+    queryFn: () => getGuestPolicyByType("terms-and-conditions"),
+  });
+
+  if (isLoading) return <p>Loading...</p>;
+
+  return (
+    <div>
+      <h1>{policy.title}</h1>
+      <div dangerouslySetInnerHTML={{ __html: policy.contentHtml }} />
+    </div>
+  );
+}
+```
+
+### 4. React Query hook for admin policy type
 
 ```tsx
 import { useQuery } from "@tanstack/react-query";
@@ -249,7 +326,7 @@ function TermsPage() {
 }
 ```
 
-### 3. List all active policies with acceptance status
+### 5. List all active policies with acceptance status
 
 ```tsx
 import { useActivePolicies } from "@/hooks/queries";
@@ -272,7 +349,7 @@ function MyPolicies() {
 }
 ```
 
-### 4. Accept a policy
+### 6. Accept a policy
 
 ```tsx
 import { usePolicyMutations } from "@/hooks/queries";
@@ -291,7 +368,7 @@ function AcceptButton({ policyId }: { policyId: string }) {
 }
 ```
 
-### 5. Display human-readable type label
+### 7. Display human-readable type label
 
 ```tsx
 import { POLICY_TYPE_LABELS, type PolicyType } from "@/lib/api/policies.api";
@@ -351,6 +428,20 @@ interface PolicySummary {
 }
 
 interface PolicyDetail extends PolicySummary {
+  contentHtml: string;
+  contentJson: object;
+  contentText: string;
+}
+
+/** Returned by the guest (unauthenticated) endpoint — no admin fields */
+interface GuestPolicy {
+  _id: string;
+  policyType: PolicyType;
+  title: string;
+  slug: string;
+  version: number;
+  isRequired: boolean;
+  publishedAt: string | null;
   contentHtml: string;
   contentJson: object;
   contentText: string;

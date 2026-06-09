@@ -135,6 +135,16 @@ export const listActivePolicies = (): Promise<ActivePolicy[]> =>
 export const acceptPolicy = (id: string) =>
   apiAxios.post(`/policies/public/${id}/accept`).then(unwrap);
 
+// ─── Guest / Unauthenticated ──────────────────────────────────────────────────
+
+/** Fetch an active policy by type — no login required, uses x-api-key */
+export const getGuestPolicyByType = (policyType: PolicyType): Promise<PolicyDetail> =>
+  apiAxios
+    .get(`/policies/guest/${policyType}`, {
+      headers: { 'x-api-key': process.env.NEXT_PUBLIC_GUEST_API_KEY ?? '' },
+    })
+    .then(unwrap);
+
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
 export const listPolicies = (
