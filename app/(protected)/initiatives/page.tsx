@@ -227,15 +227,6 @@ function InitiativeForm({ item, departments, userDeptId, onSave, onCancel }: {
     }
   };
 
-  const RichField = ({ label, field, placeholder, required }: { label: string; field: keyof typeof form; placeholder: string; required?: boolean }) => (
-    <div className="space-y-1.5">
-      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}{required && " *"}</label>
-      <div className="border border-input rounded-lg overflow-hidden">
-        <RichTextEditor value={form[field] as string} onChange={(html) => setForm((f) => ({ ...f, [field]: html }))} placeholder={placeholder} />
-      </div>
-    </div>
-  );
-
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
       <Button variant="ghost" size="sm" className="gap-1 -ml-2 text-muted-foreground" onClick={onCancel}><ChevronLeft className="w-4 h-4" /> Cancel</Button>
@@ -258,11 +249,36 @@ function InitiativeForm({ item, departments, userDeptId, onSave, onCancel }: {
               {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
             </select>
           </div>
-          <RichField label="Problem" field="problem" placeholder="What's happening..." required />
-          <RichField label="Why It Matters" field="whyItMatters" placeholder="Impact on business..." />
-          <RichField label="Proposed Solution" field="proposedSolution" placeholder="Your idea..." required />
-          <RichField label="Execution Plan" field="executionPlan" placeholder="Step 1, Step 2..." />
-          <RichField label="Expected Outcome" field="expectedOutcome" placeholder="Metrics / result..." />
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Problem *</label>
+            <div className="border border-input rounded-lg overflow-hidden">
+              <RichTextEditor value={form.problem} onChange={(html) => setForm((f) => ({ ...f, problem: html }))} placeholder="What's happening..." />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Why It Matters</label>
+            <div className="border border-input rounded-lg overflow-hidden">
+              <RichTextEditor value={form.whyItMatters} onChange={(html) => setForm((f) => ({ ...f, whyItMatters: html }))} placeholder="Impact on business..." />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Proposed Solution *</label>
+            <div className="border border-input rounded-lg overflow-hidden">
+              <RichTextEditor value={form.proposedSolution} onChange={(html) => setForm((f) => ({ ...f, proposedSolution: html }))} placeholder="Your idea..." />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Execution Plan</label>
+            <div className="border border-input rounded-lg overflow-hidden">
+              <RichTextEditor value={form.executionPlan} onChange={(html) => setForm((f) => ({ ...f, executionPlan: html }))} placeholder="Step 1, Step 2..." />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Expected Outcome</label>
+            <div className="border border-input rounded-lg overflow-hidden">
+              <RichTextEditor value={form.expectedOutcome} onChange={(html) => setForm((f) => ({ ...f, expectedOutcome: html }))} placeholder="Metrics / result..." />
+            </div>
+          </div>
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Support Needed (Teams)</label>
             <DepartmentMultiSelect

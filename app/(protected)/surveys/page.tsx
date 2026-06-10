@@ -2,12 +2,20 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { listPublicSurveys, getPublicSurvey, submitSurveyResponse, type Survey, type SurveyField } from "@/lib/api/surveys.api";
+import { listPublicSurveys, getPublicSurvey, submitSurveyResponse, getSurveySummary, type Survey, type SurveyField, type SurveyCategory } from "@/lib/api/surveys.api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardList, ChevronLeft, Loader2, AlertCircle, Send, CheckCircle2, Clock, Users } from "lucide-react";
+import { ClipboardList, ChevronLeft, Loader2, AlertCircle, Send, CheckCircle2, Clock, Users, BarChart3 } from "lucide-react";
+
+const CATEGORY_COLORS: Record<SurveyCategory, string> = {
+  feedback: "bg-blue-50 text-blue-700 border-blue-200",
+  ideas: "bg-amber-50 text-amber-700 border-amber-200",
+  satisfaction: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  poll: "bg-violet-50 text-violet-700 border-violet-200",
+  other: "bg-gray-100 text-gray-700 border-gray-200",
+};
 
 export default function PublicSurveysPage() {
   const [page, setPage] = useState(1);
@@ -26,10 +34,10 @@ export default function PublicSurveysPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-3xl mx-auto pt-6 space-y-6">
       <div className="flex items-center gap-3">
         <div className="p-2.5 rounded-xl bg-primary/10"><ClipboardList className="w-5 h-5 text-primary" /></div>
-        <div><h1 className="text-xl font-bold">Surveys</h1><p className="text-sm text-muted-foreground">Share your feedback</p></div>
+        <div><h1 className="text-xl font-bold">Surveys</h1><p className="text-sm text-muted-foreground">Share your feedback and ideas</p></div>
       </div>
 
       {isLoading ? (
@@ -42,8 +50,11 @@ export default function PublicSurveysPage() {
         <div className="space-y-3">
           {surveys.map((s) => (
             <Card key={s._id} className="p-5 cursor-pointer hover:border-primary/30 hover:shadow-md transition-all" onClick={() => setSelectedId(s._id)}>
-              <h3 className="font-semibold mb-1">{s.title}</h3>
-              {s.description && <p className="text-sm text-muted-foreground mb-2">{s.description}</p>}
+              <div className="flex items-center gap-2 mb-1.5">
+                <h3 className="font-semibold text-sm">{s.title}</h3>
+                <Badge variant="outline" className={`text-[10px] ${CATEGORY_COLORS[s.category]}`}>{s.category}</Badge>
+              </div>
+              {s.description && <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{s.description}</p>}
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span>{s.fields.length} questions</span>
                 {s.settings.closesAt && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />Closes {new Date(s.settings.closesAt).toLocaleDateString()}</span>}
@@ -68,8 +79,14 @@ export default function PublicSurveysPage() {
 
 function SurveyFiller({ surveyId, onBack }: { surveyId: string; onBack: () => void }) {
   const { data: survey, isLoading } = useQuery({ queryKey: ["surveys", "public", surveyId], queryFn: () => getPublicSurvey(surveyId) });
+  const { data: summary } = useQuery({
+    queryKey: ["surveys", "public", surveyId, "summary"],
+    queryFn: () => getSurveySummary(surveyId),
+    enabled: false,
+  });
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [showResults, setShowResults] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const submit = useMutation({
@@ -78,19 +95,24 @@ function SurveyFiller({ surveyId, onBack }: { surveyId: string; onBack: () => vo
       return submitSurveyResponse(surveyId, payload);
     },
     onSuccess: () => setSubmitted(true),
-    onError: (err: Error) => setSubmitError(err.message || "Failed to submit"),
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || err?.message || "Failed to submit";
+      setSubmitError(msg);
+    },
   });
 
   if (isLoading || !survey) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>;
 
   if (submitted) {
     return (
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto pt-6">
         <Card className="p-12 text-center">
           <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-4" />
           <h2 className="text-lg font-bold mb-2">Thank you!</h2>
           <p className="text-muted-foreground mb-6">Your response has been recorded.</p>
-          <Button onClick={onBack}>Back to Surveys</Button>
+          <div className="flex justify-center gap-3">
+            <Button onClick={onBack}>Back to Surveys</Button>
+          </div>
         </Card>
       </div>
     );
@@ -99,12 +121,18 @@ function SurveyFiller({ surveyId, onBack }: { surveyId: string; onBack: () => vo
   const sorted = [...survey.fields].sort((a, b) => a.order - b.order);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto pt-6 space-y-5">
       <Button variant="ghost" size="sm" onClick={onBack}><ChevronLeft className="w-4 h-4 mr-1" />Back</Button>
 
-      <Card className="p-6">
-        <h2 className="text-lg font-bold mb-1">{survey.title}</h2>
-        {survey.description && <p className="text-sm text-muted-foreground mb-4">{survey.description}</p>}
+      <Card className="overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-primary via-primary/80 to-primary/60" />
+        <div className="p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Badge variant="outline" className={`text-[10px] ${CATEGORY_COLORS[survey.category]}`}>{survey.category}</Badge>
+          </div>
+          <h2 className="text-lg font-bold">{survey.title}</h2>
+          {survey.description && <p className="text-sm text-muted-foreground mt-1">{survey.description}</p>}
+        </div>
       </Card>
 
       <div className="space-y-4">
@@ -118,9 +146,9 @@ function SurveyFiller({ surveyId, onBack }: { surveyId: string; onBack: () => vo
         ))}
       </div>
 
-      {submitError && <Card className="p-4 border-red-200 bg-red-50 text-red-600 text-sm">{submitError}</Card>}
+      {submitError && <Card className="p-4 border-red-200 bg-red-50 text-red-600 text-sm flex items-center gap-2"><AlertCircle className="w-4 h-4 shrink-0" />{submitError}</Card>}
 
-      <Button className="w-full gap-2" size="lg" onClick={() => submit.mutate()} disabled={submit.isPending}>
+      <Button className="w-full gap-2" size="lg" onClick={() => { setSubmitError(null); submit.mutate(); }} disabled={submit.isPending}>
         {submit.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}Submit Response
       </Button>
     </div>
@@ -134,21 +162,21 @@ function FieldInput({ field, value, onChange }: { field: SurveyField; value: unk
     case "text":
       return <Input placeholder={field.placeholder} value={(value as string) || ""} onChange={(e) => onChange(e.target.value)} />;
     case "textarea":
-      return <textarea className="w-full border rounded-lg px-3 py-2 text-sm bg-background resize-none" rows={4} placeholder={field.placeholder} value={(value as string) || ""} onChange={(e) => onChange(e.target.value)} />;
+      return <textarea className="w-full border rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-1 focus:ring-ring" rows={4} placeholder={field.placeholder} value={(value as string) || ""} onChange={(e) => onChange(e.target.value)} />;
     case "number":
       return <Input type="number" placeholder={field.placeholder} value={(value as string) || ""} onChange={(e) => onChange(e.target.value)} min={field.validation.min} max={field.validation.max} />;
     case "date":
       return <Input type="date" value={(value as string) || ""} onChange={(e) => onChange(e.target.value)} />;
     case "select":
       return (
-        <select className="w-full border rounded-lg px-3 py-2 text-sm bg-background" value={(value as string) || ""} onChange={(e) => onChange(e.target.value)}>
+        <select className="w-full border rounded-lg px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-1 focus:ring-ring" value={(value as string) || ""} onChange={(e) => onChange(e.target.value)}>
           <option value="">{field.placeholder || "Select..."}</option>
           {field.options.map((o) => <option key={o.id} value={o.value}>{o.label}</option>)}
         </select>
       );
     case "multi-select":
       return (
-        <select multiple className="w-full border rounded-lg px-3 py-2 text-sm bg-background min-h-[100px]" value={(value as string[]) || []} onChange={(e) => onChange(Array.from(e.target.selectedOptions, (o) => o.value))}>
+        <select multiple className="w-full border rounded-lg px-3 py-2 text-sm bg-background min-h-[100px] focus:outline-none focus:ring-1 focus:ring-ring" value={(value as string[]) || []} onChange={(e) => onChange(Array.from(e.target.selectedOptions, (o) => o.value))}>
           {field.options.map((o) => <option key={o.id} value={o.value}>{o.label}</option>)}
         </select>
       );

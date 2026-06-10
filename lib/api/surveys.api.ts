@@ -1,9 +1,12 @@
 import { apiAxios } from "./client";
+import axios from "axios";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type SurveyFieldType = 'text' | 'textarea' | 'number' | 'select' | 'multi-select' | 'radio' | 'checkbox' | 'date' | 'rating';
-export type SurveyStatus = 'draft' | 'active' | 'closed';
+export type SurveyStatus = 'draft' | 'published' | 'closed';
+export type SurveyCategory = 'feedback' | 'ideas' | 'satisfaction' | 'poll' | 'other';
+export type SurveyScope = 'internal' | 'external';
 
 export interface FieldOption { id: string; label: string; value: string; }
 
@@ -14,12 +17,21 @@ export interface SurveyField {
 }
 
 export interface Survey {
-  _id: string; title: string; description: string; version: number;
-  fields: SurveyField[];
+  _id: string; title: string; description: string;
+  category: SurveyCategory; scope: SurveyScope;
+  version: number; fields: SurveyField[];
   author: { _id: string; name: string; email: string };
   status: SurveyStatus;
-  audience: { type: 'all' | 'departments'; departments: { _id: string; name: string }[] };
-  settings: { allowAnonymous: boolean; oneResponsePerUser: boolean; closesAt: string | null };
+  audience: {
+    type: 'all' | 'departments' | 'employees';
+    departments: { _id: string; name: string }[];
+    employees: { _id: string; name: string; email: string }[];
+  };
+  settings: {
+    allowAnonymous: boolean; oneResponsePerUser: boolean;
+    startsAt: string | null; closesAt: string | null;
+    showResultsToRespondents: boolean;
+  };
   publishedAt: string | null; responsesCount: number;
   createdAt: string; updatedAt: string;
 }
@@ -50,13 +62,21 @@ export interface FieldSummary {
 
 export interface SurveySummary { surveyId: string; totalResponses: number; fields: FieldSummary[]; }
 
-export interface SurveyFilters { page?: number; limit?: number; status?: SurveyStatus; sortBy?: string; sortOrder?: string; }
+export interface SurveyFilters {
+  page?: number; limit?: number; status?: SurveyStatus; category?: SurveyCategory;
+  scope?: SurveyScope; sortBy?: string; sortOrder?: string;
+}
 
-// ─── API ──────────────────────────────────────────────────────────────────────
+export interface ExportData {
+  headers: string[];
+  rows: Record<string, string>[];
+  total: number;
+}
+
+// ─── API (Admin) ──────────────────────────────────────────────────────────────
 
 const unwrap = (res: any) => res.data.data;
 
-// Admin
 export const listSurveys = (f: SurveyFilters = {}): Promise<SurveyListResponse> => apiAxios.get("/surveys", { params: f }).then(unwrap);
 export const getSurvey = (id: string): Promise<Survey> => apiAxios.get(`/surveys/${id}`).then(unwrap);
 export const createSurvey = (data: object): Promise<Survey> => apiAxios.post("/surveys", data).then(unwrap);
@@ -64,8 +84,17 @@ export const updateSurvey = (id: string, data: object): Promise<Survey> => apiAx
 export const deleteSurvey = (id: string): Promise<void> => apiAxios.delete(`/surveys/${id}`).then(() => undefined);
 export const getSurveyResponses = (id: string, page = 1, limit = 20): Promise<SurveyResponseListResponse> => apiAxios.get(`/surveys/${id}/responses`, { params: { page, limit } }).then(unwrap);
 export const getSurveySummary = (id: string): Promise<SurveySummary> => apiAxios.get(`/surveys/${id}/summary`).then(unwrap);
+export const exportSurveyResponses = (id: string): Promise<ExportData> => apiAxios.get(`/surveys/${id}/export`).then(unwrap);
 
-// Public
+// ─── API (Internal/Authenticated) ────────────────────────────────────────────
+
 export const listPublicSurveys = (page = 1, limit = 20): Promise<SurveyListResponse> => apiAxios.get("/surveys/public", { params: { page, limit } }).then(unwrap);
 export const getPublicSurvey = (id: string): Promise<Survey> => apiAxios.get(`/surveys/public/${id}`).then(unwrap);
 export const submitSurveyResponse = (id: string, answers: { fieldId: string; value: unknown }[]): Promise<SurveyResponse> => apiAxios.post(`/surveys/public/${id}/respond`, { answers }).then(unwrap);
+
+// ─── API (External/Public — no auth) ─────────────────────────────────────────
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+
+export const getExternalSurvey = (id: string): Promise<Survey> => axios.get(`${API_BASE}/surveys/external/${id}`).then((r) => r.data.data);
+export const submitExternalResponse = (id: string, answers: { fieldId: string; value: unknown }[]): Promise<SurveyResponse> => axios.post(`${API_BASE}/surveys/external/${id}/respond`, { answers }).then((r) => r.data.data);
