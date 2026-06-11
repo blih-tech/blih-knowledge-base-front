@@ -11,6 +11,9 @@ import {
   commentOnInitiative,
   deleteInitiativeComment,
   toggleInitiativeReaction,
+  getEvaluationConfig,
+  updateEvaluationConfig,
+  saveInitiativeEvaluation,
   type InitiativeFilters,
 } from "@/lib/api/initiatives.api";
 
@@ -101,4 +104,34 @@ export function useInitiativeInteractions() {
   });
 
   return { rate, comment, removeComment, react };
+}
+
+export function useEvaluationConfig() {
+  return useQuery({
+    queryKey: queryKeys.initiatives.evaluationConfig,
+    queryFn: getEvaluationConfig,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useInitiativeEvaluation() {
+  const queryClient = useQueryClient();
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.initiatives.all });
+
+  const saveEvaluation = useMutation({
+    mutationFn: ({ id, scores, note }: { id: string; scores: Record<string, number>; note?: string }) =>
+      saveInitiativeEvaluation(id, { scores, note }),
+    onSuccess: invalidate,
+  });
+
+  const saveConfig = useMutation({
+    mutationFn: updateEvaluationConfig,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.initiatives.evaluationConfig });
+      invalidate();
+    },
+  });
+
+  return { saveEvaluation, saveConfig };
 }

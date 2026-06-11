@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useSurveys, useSurveyMutations, useSurveyResponses, useSurveySummary, useDepartments, useEmployees } from "@/hooks/queries";
 import type { Survey, SurveyField, SurveyFieldType, FieldOption, SurveyFilters, SurveyStatus, SurveyCategory, SurveyScope } from "@/lib/api/surveys.api";
 import { exportSurveyResponses } from "@/lib/api/surveys.api";
+import { ShareLinkCard } from "@/components/ShareLinkCard";
+import { submissionLabel, submissionBadgeClass } from "@/lib/survey-status";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   ClipboardList, Plus, Loader2, AlertCircle, ChevronLeft, Save, Send,
   Trash2, Edit3, Filter, X, BarChart3, Users, Eye, Settings, GripVertical,
-  Globe, Lock, Download, Copy, ExternalLink,
+  Globe, Lock, Download, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 
@@ -134,7 +136,11 @@ export default function AdminSurveysPage() {
                   </div>
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span>{s.fields.length} fields</span>
-                    <span className="flex items-center gap-1"><Users className="w-3 h-3" />{s.responsesCount} responses</span>
+                    {s.scope === "external" ? (
+                      <Badge variant="outline" className={`text-[10px] ${submissionBadgeClass(s)}`}>{submissionLabel(s)}</Badge>
+                    ) : (
+                      <span className="flex items-center gap-1"><Users className="w-3 h-3" />{s.responsesCount} responses</span>
+                    )}
                     <span>v{s.version}</span>
                     <span>{s.audience.type === "all" ? "All" : s.audience.type === "departments" ? `${s.audience.departments.length} dept(s)` : `${s.audience.employees?.length || 0} employee(s)`}</span>
                   </div>
@@ -186,14 +192,19 @@ function SurveyDetail({ survey: s, onBack, onEdit, onResponses, onPreview, onDel
           <div><span className="text-muted-foreground block text-xs mb-1">Closes</span>{s.settings.closesAt ? new Date(s.settings.closesAt).toLocaleDateString() : "Never"}</div>
           <div><span className="text-muted-foreground block text-xs mb-1">Version</span>v{s.version}</div>
           <div><span className="text-muted-foreground block text-xs mb-1">Results visible</span>{s.settings.showResultsToRespondents ? "Yes" : "No"}</div>
+          {s.scope === "external" && (
+            <div>
+              <span className="text-muted-foreground block text-xs mb-1">Submission</span>
+              <Badge variant="outline" className={`text-[10px] ${submissionBadgeClass(s)}`}>{submissionLabel(s)}</Badge>
+            </div>
+          )}
         </div>
         {publicUrl && (
-          <div className="flex items-center gap-2 p-3 bg-secondary/30 rounded-lg">
-            <Globe className="w-4 h-4 text-muted-foreground shrink-0" />
-            <code className="text-xs flex-1 truncate">{publicUrl}</code>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigator.clipboard.writeText(publicUrl)}><Copy className="w-3.5 h-3.5" /></Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(publicUrl, "_blank")}><ExternalLink className="w-3.5 h-3.5" /></Button>
-          </div>
+          <ShareLinkCard
+            url={publicUrl}
+            title={s.title}
+            description="Send this link to your client to collect their satisfaction feedback."
+          />
         )}
         <div>
           <h3 className="text-sm font-semibold mb-3">Fields ({s.fields.length})</h3>
@@ -334,6 +345,17 @@ function SurveyBuilder({ initial, onSave, onCancel, isSaving }: {
   const [startsAt, setStartsAt] = useState(initial?.settings?.startsAt?.slice(0, 10) || "");
   const [closesAt, setClosesAt] = useState(initial?.settings?.closesAt?.slice(0, 10) || "");
   const [editingField, setEditingField] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const moveField = (index: number, direction: -1 | 1) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= fields.length) return;
+    setFields((prev) => {
+      const arr = [...prev];
+      [arr[index], arr[newIndex]] = [arr[newIndex], arr[index]];
+      return arr;
+    });
+  };
 
   const addField = (type: SurveyFieldType) => {
     const newField: SurveyField = {
@@ -385,9 +407,41 @@ function SurveyBuilder({ initial, onSave, onCancel, isSaving }: {
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="sm" onClick={onCancel}><ChevronLeft className="w-4 h-4 mr-1" />Back</Button>
         <h1 className="text-lg font-bold">{initial ? "Edit" : "New"} Survey</h1>
+        <Button variant={showPreview ? "default" : "outline"} size="sm" className="ml-auto gap-1.5" onClick={() => setShowPreview(!showPreview)}>
+          <Eye className="w-3.5 h-3.5" />{showPreview ? "Edit Mode" : "Preview"}
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+      {showPreview ? (
+        /* ── Live Preview ── */
+        <div className="max-w-2xl mx-auto space-y-5">
+          <Card className="overflow-hidden">
+            <div className="h-1.5 bg-gradient-to-r from-primary via-primary/80 to-primary/60" />
+            <div className="p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <ClipboardList className="w-5 h-5 text-primary" />
+                <Badge variant="outline" className={`text-[10px] ${CATEGORY_COLORS[category]}`}>{category}</Badge>
+                {scope === "external" && <Badge variant="outline" className="text-[10px]"><Globe className="w-3 h-3 mr-1" />External</Badge>}
+              </div>
+              <h1 className="text-xl font-bold">{title || "Untitled Survey"}</h1>
+              {description && <p className="text-sm text-muted-foreground mt-2">{description}</p>}
+            </div>
+          </Card>
+          {fields.length === 0 ? (
+            <Card className="p-8 text-center text-muted-foreground text-sm">No fields added yet</Card>
+          ) : fields.map((field) => (
+            <Card key={field.id} className="p-5">
+              <label className="text-sm font-medium mb-2.5 block">
+                {field.label} {field.required && <span className="text-red-500">*</span>}
+              </label>
+              <PreviewFieldInput field={field} />
+            </Card>
+          ))}
+          <Button className="w-full gap-2" size="lg" disabled><Send className="w-4 h-4" />Submit Response (Preview Only)</Button>
+        </div>
+      ) : (
+        /* ── Edit Mode ── */
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
         {/* Main */}
         <div className="space-y-4">
           <Card className="p-5 space-y-4">
@@ -413,10 +467,13 @@ function SurveyBuilder({ initial, onSave, onCancel, isSaving }: {
           <div className="space-y-2">
             {fields.length === 0 ? (
               <Card className="p-8 text-center"><p className="text-muted-foreground text-sm">Click a field type above to add your first question</p></Card>
-            ) : fields.map((f) => (
+            ) : fields.map((f, idx) => (
               <Card key={f.id} className={`p-4 cursor-pointer transition-all ${editingField === f.id ? "border-primary shadow-md" : "hover:border-primary/30"}`} onClick={() => setEditingField(f.id)}>
-                <div className="flex items-center gap-3">
-                  <GripVertical className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col shrink-0">
+                    <button type="button" className="p-0.5 rounded hover:bg-secondary disabled:opacity-20" disabled={idx === 0} onClick={(e) => { e.stopPropagation(); moveField(idx, -1); }}><ArrowUp className="w-3 h-3 text-muted-foreground" /></button>
+                    <button type="button" className="p-0.5 rounded hover:bg-secondary disabled:opacity-20" disabled={idx === fields.length - 1} onClick={(e) => { e.stopPropagation(); moveField(idx, 1); }}><ArrowDown className="w-3 h-3 text-muted-foreground" /></button>
+                  </div>
                   <Badge variant="outline" className="text-[10px] shrink-0">{f.type}</Badge>
                   <span className="text-sm font-medium flex-1">{f.label}</span>
                   {f.required && <Badge variant="destructive" className="text-[10px]">Required</Badge>}
@@ -489,7 +546,8 @@ function SurveyBuilder({ initial, onSave, onCancel, isSaving }: {
             <div><label className="text-xs font-medium mb-1 block">Closes at</label><Input type="date" value={closesAt} onChange={(e) => setClosesAt(e.target.value)} /></div>
           </Card>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

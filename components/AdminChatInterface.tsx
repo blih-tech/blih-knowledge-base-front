@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { ChatMessage, Source } from "@/lib/api/ai.api";
-import { useAiMutations } from "@/hooks/queries";
+import { useAiChat } from "@/hooks/queries";
 import { Button } from "@/components/ui/button";
 import {
   ShieldCheck,
@@ -133,16 +133,20 @@ function EmptyState() {
 // ─── Main admin chat interface ────────────────────────────────────────────────
 
 export function AdminChatInterface({ initialMessage = "" }: { initialMessage?: string }) {
-  const { sendAdminChatMessage } = useAiMutations();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sourcesMap, setSourcesMap] = useState<Record<number, Source[]>>({});
+  const { messages, sourcesMap, isStreaming, error, send: sendMessage, reset: resetChat } = useAiChat();
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const sentInitial = useRef(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const send = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || isStreaming) return;
+    setInput("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    void sendMessage(trimmed);
+  }, [isStreaming, sendMessage]);
 
   // Auto-send the prefilled message once on mount
   useEffect(() => {
@@ -155,7 +159,7 @@ export function AdminChatInterface({ initialMessage = "" }: { initialMessage?: s
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+  }, [messages, isStreaming]);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -165,34 +169,6 @@ export function AdminChatInterface({ initialMessage = "" }: { initialMessage?: s
     window.addEventListener("admin-ai-suggestion", handler);
     return () => window.removeEventListener("admin-ai-suggestion", handler);
   }, []);
-
-  const send = useCallback(async (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed || isLoading) return;
-
-    const userMsg: ChatMessage = { role: "user", content: trimmed };
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const { reply, sources } = await sendAdminChatMessage.mutateAsync({
-        message: trimmed,
-        history: messages,
-      });
-      const assistantMsg: ChatMessage = { role: "assistant", content: reply };
-      setMessages((prev) => {
-        const idx = prev.length;
-        setSourcesMap((m) => ({ ...m, [idx]: sources }));
-        return [...prev, assistantMsg];
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "AI service is unavailable. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isLoading, messages, sendAdminChatMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -208,11 +184,12 @@ export function AdminChatInterface({ initialMessage = "" }: { initialMessage?: s
   };
 
   const reset = () => {
-    setMessages([]);
-    setSourcesMap({});
-    setError(null);
+    resetChat();
     setInput("");
   };
+
+  const lastMsg = messages[messages.length - 1];
+  const awaitingFirstToken = isStreaming && (!lastMsg || lastMsg.role !== "assistant" || lastMsg.content === "");
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -238,15 +215,18 @@ export function AdminChatInterface({ initialMessage = "" }: { initialMessage?: s
         {messages.length === 0 ? (
           <EmptyState />
         ) : (
-          messages.map((msg, idx) => (
-            <MessageBubble
-              key={idx}
-              msg={msg}
-              sources={msg.role === "assistant" ? sourcesMap[idx] : undefined}
-            />
-          ))
+          messages.map((msg, idx) => {
+            if (msg.role === "assistant" && msg.content === "" && idx === messages.length - 1) return null;
+            return (
+              <MessageBubble
+                key={idx}
+                msg={msg}
+                sources={msg.role === "assistant" ? sourcesMap[idx] : undefined}
+              />
+            );
+          })
         )}
-        {isLoading && <TypingIndicator />}
+        {awaitingFirstToken && <TypingIndicator />}
         {error && (
           <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -266,11 +246,11 @@ export function AdminChatInterface({ initialMessage = "" }: { initialMessage?: s
             onChange={handleInput}
             onKeyDown={handleKeyDown}
             placeholder="Ask about clients, documents, procedures, or anything in the knowledge base…"
-            disabled={isLoading}
+            disabled={isStreaming}
             className="flex-1 bg-transparent text-sm resize-none outline-none text-foreground placeholder:text-muted-foreground disabled:opacity-50 min-h-[24px] max-h-[160px] py-1"
           />
           <button
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || isStreaming}
             onClick={() => send(input)}
             className="w-8 h-8 shrink-0 rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
           >

@@ -11,6 +11,7 @@ import {
 import type { Department } from "@/lib/api/departments.api";
 import { useInitiatives, useInitiativeMutations, useDepartments } from "@/hooks/queries";
 import { InitiativeInteractions } from "@/components/InitiativeInteractions";
+import { EvaluationBadge } from "@/components/EvaluationBadge";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,14 @@ function exportInitiativePdf(i: Initiative) {
   const sec = (label: string, html: string) =>
     html ? `<div class="section"><div class="section-label">${label}</div><div class="content">${html}</div></div>` : "";
   const supportNames = i.supportNeeded?.map((d) => d.name).join(", ") || "—";
+  const ev = i.evaluation;
+  const evalHtml = ev && ev.state === "evaluated" && ev.finalScore !== null
+    ? `<div class="section"><div class="section-label">Performance Evaluation</div><div class="content">`
+      + `<p><strong>Score: ${ev.finalScore}/100</strong>${ev.tierLabel ? ` · ${ev.tierLabel}` : ""}</p>`
+      + `<ul>${ev.criterionScores.map((c) => `<li>${c.label}: ${c.rawScore.toFixed(1)}/5 (weight ${c.weight})</li>`).join("")}</ul>`
+      + (ev.note ? `<p><em>${ev.note}</em></p>` : "")
+      + `</div></div>`
+    : "";
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${i.title}</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a2e;padding:48px;max-width:800px;margin:0 auto;line-height:1.6}.header{border-bottom:2px solid #e2e8f0;padding-bottom:20px;margin-bottom:24px}.title{font-size:22px;font-weight:700;margin-bottom:8px}.meta{display:flex;flex-wrap:wrap;gap:20px;font-size:12px;color:#64748b;margin-top:12px}.section{margin-top:24px}.section-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:700;color:#94a3b8;margin-bottom:8px}.content{font-size:14px}.content p{margin-bottom:8px}.content ul,.content ol{margin-left:20px;margin-bottom:8px}.footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}@media print{body{padding:0}}</style></head><body>
 <div class="header"><div class="title">${i.title}</div><div class="meta">
@@ -54,7 +63,7 @@ function exportInitiativePdf(i: Initiative) {
 <div>Support: <strong>${supportNames}</strong></div>
 <div>Created: ${formatDate(i.createdAt)}</div>
 </div></div>
-${sec("Problem", i.problem)}${sec("Why It Matters", i.whyItMatters)}${sec("Proposed Solution", i.proposedSolution)}${sec("Execution Plan", i.executionPlan)}${sec("Expected Outcome", i.expectedOutcome)}
+${sec("Problem", i.problem)}${sec("Why It Matters", i.whyItMatters)}${sec("Proposed Solution", i.proposedSolution)}${sec("Execution Plan", i.executionPlan)}${sec("Expected Outcome", i.expectedOutcome)}${evalHtml}
 <div class="footer">Generated on ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
 <script>window.onload=function(){window.print();}</script></body></html>`;
   w.document.write(html);
@@ -113,6 +122,7 @@ function InitiativeDetail({ item, onBack, onEdit, isOwner, userId }: {
             <h1 className="text-lg font-bold">{item.title}</h1>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <Badge variant="outline" className={STATUS_COLORS[item.status]}>{item.status.replace("_", " ")}</Badge>
+              <EvaluationBadge evaluation={item.evaluation} />
             </div>
           </div>
           <Separator />
@@ -330,7 +340,7 @@ export default function EmployeeInitiativesPage() {
   };
 
   if (view === "detail" && selected) {
-    const isOwner = selected.author?._id === user?._id;
+    const isOwner = selected.author?._id === user?.id;
     return (
       <div className="max-w-3xl mx-auto pt-6">
         <InitiativeDetail
@@ -338,7 +348,7 @@ export default function EmployeeInitiativesPage() {
           onBack={() => { setSelected(null); setView("list"); }}
           onEdit={() => { setEditing(selected); setView("form"); }}
           isOwner={isOwner}
-          userId={user?._id}
+          userId={user?.id}
         />
       </div>
     );
@@ -350,7 +360,6 @@ export default function EmployeeInitiativesPage() {
         <InitiativeForm
           item={editing}
           departments={departments}
-          userDeptId={user?.department}
           onSave={handleSave}
           onCancel={() => { setEditing(null); setView("list"); }}
         />

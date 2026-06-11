@@ -16,19 +16,15 @@ export interface ChatResult {
   sources: Source[];
 }
 
+/**
+ * Non-streaming fallback. The primary path is the SSE stream in ai.stream.ts;
+ * this remains for callers that don't need token-by-token rendering.
+ * The endpoint is authenticated and scopes context to the requesting user.
+ */
 export const sendChatMessage = async (
   message: string,
   history: ChatMessage[]
 ): Promise<ChatResult> => {
   const res = await apiAxios.post("/ai/chat", { message, history });
-  return res.data.data as ChatResult;
-};
-
-/** Admin-only — full context (docs + clients + FAQs), no topic restrictions */
-export const sendAdminChatMessage = async (
-  message: string,
-  history: ChatMessage[]
-): Promise<ChatResult> => {
-  const res = await apiAxios.post("/ai/admin-chat", { message, history });
   return res.data.data as ChatResult;
 };

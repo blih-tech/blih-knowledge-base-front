@@ -37,6 +37,49 @@ export interface InitiativeReaction {
   emoji: string;
 }
 
+export type EvaluationState = "pending" | "evaluated";
+export type CriterionSource = "manual" | "auto:peerRating" | "auto:engagement";
+
+export interface CriterionScore {
+  key: string;
+  label: string;
+  source: string;
+  weight: number;
+  rawScore: number;
+  manualScore?: number;
+}
+
+export interface InitiativeEvaluation {
+  state: EvaluationState;
+  criterionScores: CriterionScore[];
+  finalScore: number | null;
+  tier: string | null;
+  tierLabel: string | null;
+  note: string;
+  evaluatedBy?: { _id: string; name: string } | null;
+  evaluatedAt: string | null;
+}
+
+export interface EvaluationCriterion {
+  key: string;
+  label: string;
+  weight: number;
+  source: CriterionSource;
+}
+
+export interface EvaluationTier {
+  key: string;
+  label: string;
+  min: number;
+  max: number;
+  color: string;
+}
+
+export interface EvaluationConfig {
+  criteria: EvaluationCriterion[];
+  tiers: EvaluationTier[];
+}
+
 export interface Initiative {
   _id: string;
   title: string;
@@ -55,6 +98,7 @@ export interface Initiative {
   averageRating: number;
   ratingsCount: number;
   commentsCount: number;
+  evaluation?: InitiativeEvaluation | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -161,5 +205,27 @@ export async function deleteInitiativeComment(id: string, commentId: string): Pr
 
 export async function toggleInitiativeReaction(id: string, emoji: string): Promise<Initiative> {
   const { data } = await apiAxios.post(`/initiatives/${id}/reactions`, { emoji });
+  return data.data;
+}
+
+// ─── Evaluation ─────────────────────────────────────────────────────────────
+
+export async function getEvaluationConfig(): Promise<EvaluationConfig> {
+  const { data } = await apiAxios.get("/initiatives/config/evaluation");
+  return data.data;
+}
+
+export async function updateEvaluationConfig(
+  payload: EvaluationConfig,
+): Promise<EvaluationConfig> {
+  const { data } = await apiAxios.put("/initiatives/config/evaluation", payload);
+  return data.data;
+}
+
+export async function saveInitiativeEvaluation(
+  id: string,
+  payload: { scores: Record<string, number>; note?: string },
+): Promise<Initiative> {
+  const { data } = await apiAxios.put(`/initiatives/${id}/evaluation`, payload);
   return data.data;
 }

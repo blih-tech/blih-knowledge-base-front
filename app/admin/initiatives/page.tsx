@@ -11,6 +11,9 @@ import {
 import type { Department } from "@/lib/api/departments.api";
 import { useInitiatives, useInitiativeMutations, useDepartments } from "@/hooks/queries";
 import { InitiativeInteractions } from "@/components/InitiativeInteractions";
+import { InitiativeEvaluationPanel } from "@/components/InitiativeEvaluationPanel";
+import { EvaluationBadge } from "@/components/EvaluationBadge";
+import { EvaluationConfigForm } from "@/components/EvaluationConfigForm";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
   Lightbulb, Plus, Loader2, AlertCircle, Building2, ChevronLeft,
-  Save, Send, Trash2, Edit3, Clock, User, Download, X, Filter, Users,
+  Save, Send, Trash2, Edit3, Clock, User, Download, X, Filter, Users, SlidersHorizontal,
 } from "lucide-react";
 
 const STATUSES: { value: InitiativeStatus | ""; label: string }[] = [
@@ -45,6 +48,14 @@ function exportInitiativePdf(i: Initiative) {
   const sec = (label: string, html: string) =>
     html ? `<div class="section"><div class="section-label">${label}</div><div class="content">${html}</div></div>` : "";
   const supportNames = i.supportNeeded?.map((d) => d.name).join(", ") || "—";
+  const ev = i.evaluation;
+  const evalHtml = ev && ev.state === "evaluated" && ev.finalScore !== null
+    ? `<div class="section"><div class="section-label">Performance Evaluation</div><div class="content">`
+      + `<p><strong>Score: ${ev.finalScore}/100</strong>${ev.tierLabel ? ` · ${ev.tierLabel}` : ""}</p>`
+      + `<ul>${ev.criterionScores.map((c) => `<li>${c.label}: ${c.rawScore.toFixed(1)}/5 (weight ${c.weight})</li>`).join("")}</ul>`
+      + (ev.note ? `<p><em>${ev.note}</em></p>` : "")
+      + `</div></div>`
+    : "";
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${i.title}</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a2e;padding:48px;max-width:800px;margin:0 auto;line-height:1.6}.header{border-bottom:2px solid #e2e8f0;padding-bottom:20px;margin-bottom:24px}.title{font-size:22px;font-weight:700;margin-bottom:8px}.meta{display:flex;flex-wrap:wrap;gap:20px;font-size:12px;color:#64748b;margin-top:12px}.section{margin-top:24px}.section-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;font-weight:700;color:#94a3b8;margin-bottom:8px}.content{font-size:14px}.content p{margin-bottom:8px}.content ul,.content ol{margin-left:20px;margin-bottom:8px}.footer{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;text-align:center}@media print{body{padding:0}}</style></head><body>
 <div class="header"><div class="title">${i.title}</div><div class="meta">
@@ -54,7 +65,7 @@ function exportInitiativePdf(i: Initiative) {
 <div>Support: <strong>${supportNames}</strong></div>
 <div>Created: ${formatDate(i.createdAt)}</div>
 </div></div>
-${sec("Problem", i.problem)}${sec("Why It Matters", i.whyItMatters)}${sec("Proposed Solution", i.proposedSolution)}${sec("Execution Plan", i.executionPlan)}${sec("Expected Outcome", i.expectedOutcome)}
+${sec("Problem", i.problem)}${sec("Why It Matters", i.whyItMatters)}${sec("Proposed Solution", i.proposedSolution)}${sec("Execution Plan", i.executionPlan)}${sec("Expected Outcome", i.expectedOutcome)}${evalHtml}
 <div class="footer">Generated on ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
 <script>window.onload=function(){window.print();}</script></body></html>`;
   w.document.write(html);
@@ -107,6 +118,7 @@ function InitiativeDetail({ item, onBack, onEdit, onDelete, canManage, userId }:
               <h1 className="text-lg font-bold">{item.title}</h1>
               <div className="flex items-center gap-2 mt-2 flex-wrap">
                 <Badge variant="outline" className={STATUS_COLORS[item.status]}>{item.status.replace("_", " ")}</Badge>
+                <EvaluationBadge evaluation={item.evaluation} />
               </div>
             </div>
             {canManage && (
@@ -136,6 +148,7 @@ function InitiativeDetail({ item, onBack, onEdit, onDelete, canManage, userId }:
           <Section label="Expected Outcome" html={item.expectedOutcome} />
         </div>
       </Card>
+      {canManage && <InitiativeEvaluationPanel initiative={item} />}
       <InitiativeInteractions initiative={item} userId={userId} isAdmin={canManage} />
     </div>
   );
@@ -292,7 +305,7 @@ function InitiativeForm({ item, departments, userDeptId, onSave, onCancel }: {
 export default function AdminInitiativesPage() {
   const { user, hasPermission } = useAuth();
   const canManage = hasPermission("initiatives:manage");
-  const [view, setView] = useState<"list" | "detail" | "form">("list");
+  const [view, setView] = useState<"list" | "detail" | "form" | "config">("list");
   const [selected, setSelected] = useState<Initiative | null>(null);
   const [editing, setEditing] = useState<Initiative | null>(null);
   const [filterStatus, setFilterStatus] = useState<InitiativeStatus | "">("");
@@ -329,15 +342,19 @@ export default function AdminInitiativesPage() {
     return (
       <InitiativeDetail item={selected} onBack={() => { setSelected(null); setView("list"); }}
         onEdit={() => { setEditing(selected); setView("form"); }} onDelete={handleDelete}
-        canManage={canManage || selected.author?._id === user?._id} userId={user?._id} />
+        canManage={canManage || selected.author?._id === user?.id} userId={user?.id} />
     );
   }
 
   if (view === "form") {
     return (
-      <InitiativeForm item={editing} departments={departments} userDeptId={user?.department}
+      <InitiativeForm item={editing} departments={departments}
         onSave={handleSave} onCancel={() => { setEditing(null); setView("list"); }} />
     );
+  }
+
+  if (view === "config") {
+    return <EvaluationConfigForm onBack={() => setView("list")} />;
   }
 
   const hasFilters = !!filterStatus || !!filterDept;
@@ -353,7 +370,14 @@ export default function AdminInitiativesPage() {
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">Employee initiative proposals</p>
         </div>
-        <Button size="sm" className="gap-1.5" onClick={() => { setEditing(null); setView("form"); }}><Plus className="w-4 h-4" /> New Initiative</Button>
+        <div className="flex items-center gap-2">
+          {canManage && (
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setView("config")}>
+              <SlidersHorizontal className="w-4 h-4" /> Evaluation Settings
+            </Button>
+          )}
+          <Button size="sm" className="gap-1.5" onClick={() => { setEditing(null); setView("form"); }}><Plus className="w-4 h-4" /> New Initiative</Button>
+        </div>
       </div>
 
       <Card className="overflow-hidden">

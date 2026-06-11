@@ -112,25 +112,7 @@ function ReportCard({
 
 // ─── PDF Export (shared utility) ──────────────────────────────────────────────
 
-import { exportToPdf, formatExportDate } from "@/lib/export";
-
-function exportReportToPdf(report: TaskReport) {
-  exportToPdf({
-    title: report.title,
-    content: report.content,
-    badges: [
-      { text: report.periodType, color: "#1d4ed8", bg: "#eff6ff" },
-      { text: report.status, color: "#047857", bg: "#ecfdf5" },
-    ],
-    meta: [
-      { label: "Author", value: report.author?.name || "—" },
-      { label: "Department", value: report.department?.name || "—" },
-      { label: "Period", value: `${formatExportDate(report.periodStart)} — ${formatExportDate(report.periodEnd)}` },
-      { label: "Created", value: formatExportDate(report.createdAt) },
-    ],
-    sections: report.nextPlan ? [{ label: "Next Plan", html: report.nextPlan }] : [],
-  });
-}
+import { exportReportToPdf } from "@/lib/export";
 
 // ─── Report Detail View ───────────────────────────────────────────────────────
 

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ChatMessage, Source } from "@/lib/api/ai.api";
 import { getFullTreeClient, type CategoryNode } from "@/lib/api/documents.api";
-import { useAiMutations } from "@/hooks/queries";
+import { useAiChat } from "@/hooks/queries";
 import { Button } from "@/components/ui/button";
 import {
   Sparkles,
@@ -251,20 +251,16 @@ function EmptyState({ onSuggestion }: { onSuggestion: (text: string) => void }) 
 // ─── Main chat interface ──────────────────────────────────────────────────────
 
 export function ChatInterface() {
-  const { sendChatMessage } = useAiMutations();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sourcesMap, setSourcesMap] = useState<Record<number, Source[]>>({});
+  const { messages, sourcesMap, isStreaming, error, send: sendMessage, reset: resetChat } = useAiChat();
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom as messages grow / stream
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+  }, [messages, isStreaming]);
 
   // Handle suggestion chips
   useEffect(() => {
@@ -276,36 +272,13 @@ export function ChatInterface() {
     return () => window.removeEventListener("ai-suggestion", handler);
   }, []);
 
-  const send = useCallback(async (text: string) => {
+  const send = useCallback((text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || isLoading) return;
-
-    const userMsg: ChatMessage = { role: "user", content: trimmed };
-    setMessages((prev) => [...prev, userMsg]);
+    if (!trimmed || isStreaming) return;
     setInput("");
-    setIsLoading(true);
-    setError(null);
-
-    // Reset textarea height
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-
-    try {
-      const { reply, sources } = await sendChatMessage.mutateAsync({
-        message: trimmed,
-        history: messages,
-      });
-      const assistantMsg: ChatMessage = { role: "assistant", content: reply };
-      setMessages((prev) => {
-        const idx = prev.length;
-        setSourcesMap((m) => ({ ...m, [idx]: sources }));
-        return [...prev, assistantMsg];
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "AI service is unavailable. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isLoading, messages, sendChatMessage]);
+    void sendMessage(trimmed);
+  }, [isStreaming, sendMessage]);
 
   const handleSuggestion = useCallback((text: string) => {
     send(text);
@@ -326,13 +299,14 @@ export function ChatInterface() {
   };
 
   const reset = () => {
-    setMessages([]);
-    setSourcesMap({});
-    setError(null);
+    resetChat();
     setInput("");
   };
 
   const messageCount = messages.filter((m) => m.role === "user").length;
+  // Show the typing indicator only while waiting for the first token.
+  const lastMsg = messages[messages.length - 1];
+  const awaitingFirstToken = isStreaming && (!lastMsg || lastMsg.role !== "assistant" || lastMsg.content === "");
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -370,16 +344,20 @@ export function ChatInterface() {
           {messages.length === 0 ? (
             <EmptyState onSuggestion={handleSuggestion} />
           ) : (
-            messages.map((msg, idx) => (
-              <MessageBubble
-                key={idx}
-                msg={msg}
-                sources={msg.role === "assistant" ? sourcesMap[idx] : undefined}
-                onAsk={handleSuggestion}
-              />
-            ))
+            messages.map((msg, idx) => {
+              // The empty trailing assistant placeholder is represented by the TypingIndicator.
+              if (msg.role === "assistant" && msg.content === "" && idx === messages.length - 1) return null;
+              return (
+                <MessageBubble
+                  key={idx}
+                  msg={msg}
+                  sources={msg.role === "assistant" ? sourcesMap[idx] : undefined}
+                  onAsk={handleSuggestion}
+                />
+              );
+            })
           )}
-          {isLoading && <TypingIndicator />}
+          {awaitingFirstToken && <TypingIndicator />}
           {error && (
             <div className="flex items-start gap-2.5 text-sm text-red-600 bg-red-50/80 border border-red-200/60 rounded-xl px-4 py-3 shadow-sm">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -404,13 +382,13 @@ export function ChatInterface() {
               onChange={handleInput}
               onKeyDown={handleKeyDown}
               placeholder="Ask anything about the knowledge base…"
-              disabled={isLoading}
+              disabled={isStreaming}
               className="flex-1 bg-transparent text-sm resize-none outline-none text-foreground placeholder:text-muted-foreground/60 disabled:opacity-50 min-h-[28px] max-h-[160px] py-1.5 leading-relaxed"
             />
             <Button
               size="icon"
               className="w-8 h-8 shrink-0 rounded-lg bg-primary hover:bg-primary/90 shadow-sm shadow-primary/20 transition-all disabled:shadow-none"
-              disabled={!input.trim() || isLoading}
+              disabled={!input.trim() || isStreaming}
               onClick={() => send(input)}
             >
               <Send className="w-3.5 h-3.5" />

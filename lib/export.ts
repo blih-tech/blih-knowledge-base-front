@@ -32,22 +32,44 @@ export interface ExportDocumentOptions {
   footer?: string;
   /** If true, auto-triggers print dialog (for PDF export) */
   autoPrint?: boolean;
+  /** Document type shown in the brand bar (e.g. "Task Report"). */
+  documentType?: string;
+  /** Brand name shown in the header/footer. Defaults to "BLIH". */
+  brandName?: string;
+  /** Accent color (CSS). Defaults to BLIH teal "#0d9488". */
+  accentColor?: string;
 }
 
 /* ── Shared print-ready stylesheet ──────────────────────────── */
 
-const PRINT_STYLES = `
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+const buildPrintStyles = (accent: string) => `
+  :root { --accent: ${accent}; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { size: A4; margin: 18mm 16mm; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     color: #1a1a2e;
-    padding: 48px;
+    padding: 32px;
     max-width: 800px;
     margin: 0 auto;
     line-height: 1.7;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
+  .brandbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .brandbar .dot { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); }
   .header {
-    border-bottom: 2px solid #e2e8f0;
+    border-bottom: 2px solid var(--accent);
     padding-bottom: 20px;
     margin-bottom: 24px;
   }
@@ -57,12 +79,7 @@ const PRINT_STYLES = `
     margin-bottom: 8px;
     color: #0f172a;
   }
-  .badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 8px;
-  }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .badge {
     display: inline-block;
     padding: 2px 10px;
@@ -71,27 +88,10 @@ const PRINT_STYLES = `
     font-weight: 600;
     text-transform: capitalize;
   }
-  .meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    font-size: 12px;
-    color: #64748b;
-    margin-top: 14px;
-  }
-  .meta-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .meta-value {
-    color: #1a1a2e;
-    font-weight: 600;
-    margin-left: 4px;
-  }
-  .section {
-    margin-top: 28px;
-  }
+  .meta { display: flex; flex-wrap: wrap; gap: 20px; font-size: 12px; color: #64748b; margin-top: 14px; }
+  .meta-item { display: flex; align-items: center; gap: 4px; }
+  .meta-value { color: #1a1a2e; font-weight: 600; margin-left: 4px; }
+  .section { margin-top: 28px; }
   .section-label {
     font-size: 10px;
     text-transform: uppercase;
@@ -101,18 +101,20 @@ const PRINT_STYLES = `
     margin-bottom: 10px;
     padding-bottom: 6px;
     border-bottom: 1px solid #f1f5f9;
+    break-after: avoid;
   }
   .content { font-size: 14px; }
-  .content h1, .content h2, .content h3 { margin-top: 16px; margin-bottom: 8px; }
+  .content h1, .content h2, .content h3 { margin-top: 16px; margin-bottom: 8px; break-after: avoid; }
   .content p { margin-bottom: 8px; }
   .content ul, .content ol { margin-left: 20px; margin-bottom: 8px; }
-  .content table { border-collapse: collapse; width: 100%; margin: 12px 0; }
-  .content th, .content td { border: 1px solid #e2e8f0; padding: 6px 10px; font-size: 13px; text-align: left; }
+  .content table { border-collapse: collapse; width: 100%; margin: 12px 0; table-layout: fixed; break-inside: avoid; }
+  .content thead { display: table-header-group; }
+  .content th, .content td { border: 1px solid #e2e8f0; padding: 6px 10px; font-size: 13px; text-align: left; overflow-wrap: anywhere; }
   .content th { background: #f8fafc; font-weight: 600; }
-  .content img { max-width: 100%; height: auto; border-radius: 6px; margin: 8px 0; }
-  .content blockquote { border-left: 3px solid #6366f1; padding: 8px 14px; background: #f8fafc; margin: 12px 0; font-style: italic; color: #475569; border-radius: 0 6px 6px 0; }
+  .content img { max-width: 100%; max-height: 80vh; height: auto; object-fit: contain; border-radius: 6px; margin: 8px 0; break-inside: avoid; }
+  .content blockquote { border-left: 3px solid var(--accent); padding: 8px 14px; background: #f8fafc; margin: 12px 0; font-style: italic; color: #475569; border-radius: 0 6px 6px 0; break-inside: avoid; }
   .content code { background: #f1f5f9; border-radius: 4px; padding: 1px 5px; font-size: 0.9em; }
-  .content pre { background: #1e293b; border-radius: 8px; padding: 14px 18px; overflow-x: auto; margin: 12px 0; }
+  .content pre { background: #1e293b; border-radius: 8px; padding: 14px 18px; overflow-x: auto; margin: 12px 0; break-inside: avoid; }
   .content pre code { background: none; color: #e2e8f0; padding: 0; }
   .footer {
     margin-top: 40px;
@@ -123,7 +125,7 @@ const PRINT_STYLES = `
     text-align: center;
   }
   @media print {
-    body { padding: 24px; }
+    body { padding: 0; }
     .no-print { display: none !important; }
   }
 `;
@@ -166,7 +168,13 @@ function buildHtmlDocument(opts: ExportDocumentOptions): string {
       ),
   ].join("\n");
 
-  const footerText = opts.footer || `Generated on ${timestamp}`;
+  const brand = opts.brandName || "BLIH";
+  const accent = opts.accentColor || "#0d9488";
+  const footerText = opts.footer || `Generated on ${timestamp} · ${brand}`;
+
+  const brandBarHtml = `<div class="brandbar"><span class="dot"></span>${escapeHtml(brand)}${
+    opts.documentType ? ` · ${escapeHtml(opts.documentType)}` : ""
+  }</div>`;
 
   const printScript = opts.autoPrint
     ? `<script>window.onload = function() { window.print(); }</script>`
@@ -177,10 +185,11 @@ function buildHtmlDocument(opts: ExportDocumentOptions): string {
 <head>
   <meta charset="utf-8" />
   <title>${escapeHtml(opts.title)}</title>
-  <style>${PRINT_STYLES}</style>
+  <style>${buildPrintStyles(accent)}</style>
 </head>
 <body>
   <div class="header">
+    ${brandBarHtml}
     <div class="title">${escapeHtml(opts.title)}</div>
     ${badgesHtml}
     ${metaHtml}
@@ -294,5 +303,40 @@ export function formatExportDate(d: string | Date): string {
     month: "short",
     day: "numeric",
     year: "numeric",
+  });
+}
+
+/* ── Domain export: Task Report ─────────────────────────────── */
+
+export interface ReportLike {
+  title: string;
+  content: string;
+  nextPlan?: string | null;
+  periodType: string;
+  status: string;
+  author?: { name?: string } | null;
+  department?: { name?: string } | null;
+  periodStart: string | Date;
+  periodEnd: string | Date;
+  createdAt: string | Date;
+}
+
+/** Centralized report → PDF export (browser print). Shared by admin + employee pages. */
+export function exportReportToPdf(report: ReportLike, documentType = "Task Report"): void {
+  exportToPdf({
+    title: report.title,
+    content: report.content,
+    documentType,
+    badges: [
+      { text: report.periodType, color: "#1d4ed8", bg: "#eff6ff" },
+      { text: report.status, color: "#047857", bg: "#ecfdf5" },
+    ],
+    meta: [
+      { label: "Author", value: report.author?.name || "—" },
+      { label: "Department", value: report.department?.name || "—" },
+      { label: "Period", value: `${formatExportDate(report.periodStart)} — ${formatExportDate(report.periodEnd)}` },
+      { label: "Created", value: formatExportDate(report.createdAt) },
+    ],
+    sections: report.nextPlan ? [{ label: "Next Plan", html: report.nextPlan }] : [],
   });
 }
