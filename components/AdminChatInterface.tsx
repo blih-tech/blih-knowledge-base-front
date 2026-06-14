@@ -157,18 +157,17 @@ function MessageBubble({
           {isUser ? (
             <span className="whitespace-pre-wrap">{msg.content}</span>
           ) : (
-            <div
-              className="prose-chat [&_li]:py-0.5 [&_strong]:text-foreground [&_br+br]:hidden"
-              dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
-            />
+            <>
+              <div
+                className="prose-chat [&_li]:py-0.5 [&_strong]:text-foreground [&_br+br]:hidden"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+              />
+              <div className="flex justify-end mt-1 -mb-1 -mr-1">
+                <CopyButton text={msg.content} />
+              </div>
+            </>
           )}
         </div>
-        {/* Copy + sources for assistant */}
-        {!isUser && (
-          <div className="flex items-center gap-1 mt-1 ml-1">
-            <CopyButton text={msg.content} />
-          </div>
-        )}
         {!isUser && sources && <SourceCards sources={sources} />}
       </div>
     </div>
