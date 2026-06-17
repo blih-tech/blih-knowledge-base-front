@@ -42,6 +42,8 @@ import {
   AlignRight,
   Maximize2,
   Minimize2,
+  Indent,
+  Outdent,
 } from "lucide-react";
 
 // ─── Custom inline mark: TextSize ─────────────────────────────────────────────
@@ -225,6 +227,15 @@ export function RichTextEditor({
 
         .ProseMirror ul { list-style: disc;    padding-left: 1.6em; }
         .ProseMirror ol { list-style: decimal; padding-left: 1.6em; }
+        /* Nested list markers — disc → circle → square */
+        .ProseMirror ul ul   { list-style: circle; }
+        .ProseMirror ul ul ul { list-style: square; }
+        /* Nested ordered lists */
+        .ProseMirror ol ol   { list-style: lower-alpha; }
+        .ProseMirror ol ol ol { list-style: lower-roman; }
+        /* Prevent spacing bleed from the > * + * rule into nested lists */
+        .ProseMirror li > ul,
+        .ProseMirror li > ol { margin-top: 0.25em; margin-bottom: 0; }
         .ProseMirror li > p { margin: 0; }
 
         .ProseMirror blockquote {
@@ -410,6 +421,30 @@ export function RichTextEditor({
         >
           <ListOrdered className="w-4 h-4" />
         </Btn>
+
+        {/* Indent / Outdent — visible when inside any list */}
+        {(editor.isActive("bulletList") || editor.isActive("orderedList")) && (
+          <>
+            <Btn
+              onClick={() =>
+                editor.chain().focus().sinkListItem("listItem").run()
+              }
+              active={false}
+              title="Indent (Tab)"
+            >
+              <Indent className="w-4 h-4" />
+            </Btn>
+            <Btn
+              onClick={() =>
+                editor.chain().focus().liftListItem("listItem").run()
+              }
+              active={false}
+              title="Outdent (Shift+Tab)"
+            >
+              <Outdent className="w-4 h-4" />
+            </Btn>
+          </>
+        )}
 
         <Sep />
 
