@@ -6,8 +6,13 @@ import { useEffect } from "react";
 import { Header } from "@/components/Header";
 import { PolicyGuard } from "@/components/PolicyGuard";
 import { Loader2 } from "lucide-react";
+import { Footer } from "@/components/Footer";
 
-export default function PublicLayout({ children }: { children: React.ReactNode }) {
+export default function PublicLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { data: session, status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
@@ -36,7 +41,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       {/* Spacer to offset the fixed header height */}
       <div className="h-16 print:hidden" />
       <PolicyGuard>{children}</PolicyGuard>
+      <Footer />
     </>
   );
 }
-

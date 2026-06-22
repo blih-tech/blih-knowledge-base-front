@@ -13,7 +13,6 @@ const NAV_LINKS = [
   { label: 'Minutes', href: '/minutes' },
   { label: 'Surveys', href: '/surveys' },
   { label: 'Initiatives', href: '/initiatives' },
-  { label: 'FAQ', href: '/faq' },
   { label: 'Ask AI', href: '/ask-ai' },
 ];
 
