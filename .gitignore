@@ -8,10 +8,13 @@ __v0_jsx-dev-runtime.ts
 
 # Environment variables
 .env*.local
-.env
 
 # Common ignores
 node_modules
 .next/
 .DS_Store
 .vercel
+config.bat
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
